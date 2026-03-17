@@ -8,6 +8,8 @@ import { AnimalsModule } from './modules/animals/animals.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { EmployeesModule } from './modules/employees/employees.module';
+import { MessagingModule } from './modules/messaging/messaging.module';
+import { RemindersModule } from './modules/reminders/reminders.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { EmployeesModule } from './modules/employees/employees.module';
     AppointmentsModule,
     InventoryModule,
     EmployeesModule,
+    MessagingModule,
+    RemindersModule,
   ],
 })
 export class AppModule {}
