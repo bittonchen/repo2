@@ -1,0 +1,45 @@
+{
+  "app_name": "VetFlow",
+  "nav": {
+    "dashboard": "Dashboard",
+    "clients": "Clients",
+    "animals": "Animals",
+    "appointments": "Appointments",
+    "inventory": "Inventory",
+    "employees": "Employees",
+    "reminders": "Reminders",
+    "pos": "POS",
+    "finance": "Finance",
+    "settings": "Settings"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "name": "Full Name",
+    "phone": "Phone"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "search": "Search",
+    "loading": "Loading...",
+    "no_results": "No results found",
+    "confirm": "Confirm",
+    "back": "Back",
+    "actions": "Actions"
+  },
+  "status": {
+    "pending": "Pending",
+    "confirmed": "Confirmed",
+    "in_progress": "In Progress",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "no_show": "No Show"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "app_name": "VetFlow",
+  "nav": {
+    "dashboard": "דשבורד",
+    "clients": "לקוחות",
+    "animals": "חיות",
+    "appointments": "תורים",
+    "inventory": "מלאי",
+    "employees": "עובדים",
+    "reminders": "תזכורות",
+    "pos": "קופה",
+    "finance": "פיננסי",
+    "settings": "הגדרות"
+  },
+  "auth": {
+    "login": "התחברות",
+    "register": "הרשמה",
+    "logout": "יציאה",
+    "email": "אימייל",
+    "password": "סיסמה",
+    "name": "שם מלא",
+    "phone": "טלפון"
+  },
+  "common": {
+    "save": "שמירה",
+    "cancel": "ביטול",
+    "delete": "מחיקה",
+    "edit": "עריכה",
+    "add": "הוספה",
+    "search": "חיפוש",
+    "loading": "טוען...",
+    "no_results": "לא נמצאו תוצאות",
+    "confirm": "אישור",
+    "back": "חזרה",
+    "actions": "פעולות"
+  },
+  "status": {
+    "pending": "ממתין",
+    "confirmed": "אושר",
+    "in_progress": "בטיפול",
+    "completed": "הושלם",
+    "cancelled": "בוטל",
+    "no_show": "לא הגיע"
+  }
+}
