@@ -7,7 +7,9 @@ import { UpdateClientDto } from './dto/update-client.dto';
 export class ClientsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(tenantId: string, page = 1, pageSize = 20, search?: string) {
+  async findAll(tenantId: string, page?: number | string, pageSize?: number | string, search?: string) {
+    const p = Math.max(1, parseInt(String(page || 1), 10) || 1);
+    const ps = Math.max(1, parseInt(String(pageSize || 20), 10) || 20);
     const where: any = { tenantId };
 
     if (search) {
@@ -23,14 +25,14 @@ export class ClientsService {
       this.prisma.client.findMany({
         where,
         include: { animals: true },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
+        skip: (p - 1) * ps,
+        take: ps,
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.client.count({ where }),
     ]);
 
-    return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+    return { data, total, page: p, pageSize: ps, totalPages: Math.ceil(total / ps) };
   }
 
   async findById(tenantId: string, id: string) {

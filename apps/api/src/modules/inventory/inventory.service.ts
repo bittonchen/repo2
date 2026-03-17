@@ -47,8 +47,8 @@ export class InventoryService {
   async getLowStock(tenantId: string) {
     return this.prisma.$queryRaw`
       SELECT * FROM inventory_items
-      WHERE tenant_id = ${tenantId}
-      AND quantity <= min_quantity
+      WHERE "tenantId" = ${tenantId}
+      AND quantity <= "minQuantity"
       ORDER BY quantity ASC
     `;
   }
