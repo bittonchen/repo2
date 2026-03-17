@@ -10,6 +10,9 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { EmployeesModule } from './modules/employees/employees.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { RemindersModule } from './modules/reminders/reminders.module';
+import { PosModule } from './modules/pos/pos.module';
+import { QuotesModule } from './modules/quotes/quotes.module';
+import { FinanceModule } from './modules/finance/finance.module';
 
 @Module({
   imports: [
@@ -24,6 +27,9 @@ import { RemindersModule } from './modules/reminders/reminders.module';
     EmployeesModule,
     MessagingModule,
     RemindersModule,
+    PosModule,
+    QuotesModule,
+    FinanceModule,
   ],
 })
 export class AppModule {}

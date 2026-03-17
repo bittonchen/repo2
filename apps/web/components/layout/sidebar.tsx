@@ -13,6 +13,7 @@ import {
   Bell,
   MessageSquare,
   Receipt,
+  FileText,
   TrendingUp,
   Settings,
 } from 'lucide-react';
@@ -27,6 +28,7 @@ const navItems = [
   { href: '/reminders', label: 'תזכורות', icon: Bell },
   { href: '/messages', label: 'הודעות', icon: MessageSquare },
   { href: '/pos', label: 'קופה', icon: Receipt },
+  { href: '/quotes', label: 'הצעות מחיר', icon: FileText },
   { href: '/finance', label: 'פיננסי', icon: TrendingUp },
   { href: '/settings', label: 'הגדרות', icon: Settings },
 ];
