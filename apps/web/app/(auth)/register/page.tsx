@@ -48,7 +48,7 @@ export default function RegisterPage() {
       });
       setToken(res.token);
       setUser(res.user);
-      router.push('/dashboard');
+      router.push('/onboarding');
     } catch (err: any) {
       setError(err.message || 'שגיאה בהרשמה');
     } finally {

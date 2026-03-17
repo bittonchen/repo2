@@ -16,6 +16,7 @@ import {
   FileText,
   TrendingUp,
   Settings,
+  ShieldCheck,
 } from 'lucide-react';
 
 const navItems = [
@@ -30,6 +31,7 @@ const navItems = [
   { href: '/pos', label: 'קופה', icon: Receipt },
   { href: '/quotes', label: 'הצעות מחיר', icon: FileText },
   { href: '/finance', label: 'פיננסי', icon: TrendingUp },
+  { href: '/admin', label: 'ניהול', icon: ShieldCheck },
   { href: '/settings', label: 'הגדרות', icon: Settings },
 ];
 

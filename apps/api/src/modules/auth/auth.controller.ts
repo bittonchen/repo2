@@ -27,4 +27,14 @@ export class AuthController {
   getProfile(@CurrentUser('sub') userId: string) {
     return this.authService.getProfile(userId);
   }
+
+  @Post('change-password')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  changePassword(
+    @CurrentUser('sub') userId: string,
+    @Body() body: { currentPassword: string; newPassword: string },
+  ) {
+    return this.authService.changePassword(userId, body.currentPassword, body.newPassword);
+  }
 }
