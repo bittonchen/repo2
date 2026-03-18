@@ -519,8 +519,8 @@ export default function ClientDetailPage() {
           <div className="space-y-3">
             {client.animals.map((animal) => (
               <Card key={animal.id} className="overflow-hidden">
-                <button
-                  className="flex w-full items-center justify-between p-4 text-right hover:bg-gray-50 transition-colors"
+                <div
+                  className="flex w-full cursor-pointer items-center justify-between p-4 text-right hover:bg-gray-50 transition-colors"
                   onClick={() => setExpandedAnimal(expandedAnimal === animal.id ? null : animal.id)}
                 >
                   <div className="flex items-center gap-3">
@@ -543,7 +543,7 @@ export default function ClientDetailPage() {
                       {expandedAnimal === animal.id ? 'סגור' : 'פרטים'}
                     </span>
                   </div>
-                </button>
+                </div>
 
                 {expandedAnimal === animal.id && (
                   <div className="border-t bg-gray-50 p-4" ref={(el) => { animalRefs.current[animal.id] = el; }}>
