@@ -38,7 +38,30 @@ export class ClientsService {
   async findById(tenantId: string, id: string) {
     const client = await this.prisma.client.findFirst({
       where: { id, tenantId },
-      include: { animals: true },
+      include: {
+        animals: {
+          include: {
+            medicalRecords: {
+              orderBy: { date: 'desc' },
+              take: 5,
+              include: { veterinarian: { select: { name: true } } },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        appointments: {
+          orderBy: { startTime: 'desc' },
+          take: 10,
+          include: {
+            animal: { select: { name: true } },
+            veterinarian: { select: { name: true } },
+          },
+        },
+        invoices: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+      },
     });
     if (!client) throw new NotFoundException('Client not found');
     return client;

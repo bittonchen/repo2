@@ -275,7 +275,9 @@ export default function ClientsPage() {
                     {clients.map((client) => (
                       <tr key={client.id} className="border-b last:border-0">
                         <td className="py-3 font-medium">
-                          {client.firstName} {client.lastName}
+                          <Link href={`/clients/${client.id}`} className="text-blue-600 hover:underline">
+                            {client.firstName} {client.lastName}
+                          </Link>
                         </td>
                         <td className="py-3" dir="ltr">{client.phone}</td>
                         <td className="py-3" dir="ltr">{client.email || '—'}</td>
