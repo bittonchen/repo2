@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   ArrowRight, Phone, Mail, MapPin, PawPrint, Calendar,
-  Receipt, FileText, User, Clock, CreditCard, Plus,
+  Receipt, FileText, User, Clock, CreditCard, Plus, Download,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { getToken } from '@/lib/auth';
@@ -122,6 +122,55 @@ export default function ClientDetailPage() {
   });
   const [animalFormError, setAnimalFormError] = useState('');
   const [animalSaving, setAnimalSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const handleExportPDF = async () => {
+    if (!client || !contentRef.current) return;
+    setExporting(true);
+    try {
+      const html2canvas = (await import('html2canvas-pro')).default;
+      const { jsPDF } = await import('jspdf');
+
+      // Expand all animals for the PDF
+      const prevExpanded = expandedAnimal;
+      setExpandedAnimal(null);
+
+      // Wait for re-render
+      await new Promise((r) => setTimeout(r, 100));
+
+      const canvas = await html2canvas(contentRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+      });
+
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 297; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = -(imgHeight - heightLeft);
+        pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`${client.firstName}_${client.lastName}_תיק_לקוח.pdf`);
+      setExpandedAnimal(prevExpanded);
+    } catch (err) {
+      console.error('PDF export error:', err);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const fetchClient = async () => {
     const token = getToken();
@@ -171,18 +220,26 @@ export default function ClientDetailPage() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-6 flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => router.push('/clients')}>
-          <ArrowRight className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">{client.firstName} {client.lastName}</h1>
-          <p className="text-sm text-muted-foreground">
-            לקוח מאז {new Date(client.createdAt).toLocaleDateString('he-IL')}
-          </p>
+      <div className="mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => router.push('/clients')}>
+            <ArrowRight className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">{client.firstName} {client.lastName}</h1>
+            <p className="text-sm text-muted-foreground">
+              לקוח מאז {new Date(client.createdAt).toLocaleDateString('he-IL')}
+            </p>
+          </div>
         </div>
+        <Button variant="outline" onClick={handleExportPDF} disabled={exporting}>
+          <Download className="ml-2 h-4 w-4" />
+          {exporting ? 'מייצא...' : 'ייצוא PDF'}
+        </Button>
       </div>
 
+      {/* PDF Content Area */}
+      <div ref={contentRef}>
       {/* Client Info + Stats */}
       <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-1">
@@ -486,6 +543,7 @@ export default function ClientDetailPage() {
           </CardContent>
         </Card>
       </div>
+      </div>{/* end PDF Content Area */}
     </div>
   );
 }
