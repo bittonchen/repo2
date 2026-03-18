@@ -68,14 +68,16 @@ export class ClientsService {
   }
 
   async create(tenantId: string, dto: CreateClientDto) {
-    return this.prisma.client.create({
-      data: { ...dto, tenantId },
-    });
+    const data: any = { ...dto, tenantId };
+    if (data.dateOfBirth) data.dateOfBirth = new Date(data.dateOfBirth);
+    return this.prisma.client.create({ data });
   }
 
   async update(tenantId: string, id: string, dto: UpdateClientDto) {
     await this.findById(tenantId, id);
-    return this.prisma.client.update({ where: { id }, data: dto });
+    const data: any = { ...dto };
+    if (data.dateOfBirth) data.dateOfBirth = new Date(data.dateOfBirth);
+    return this.prisma.client.update({ where: { id }, data });
   }
 
   async remove(tenantId: string, id: string) {

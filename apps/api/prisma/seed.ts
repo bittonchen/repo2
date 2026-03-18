@@ -72,6 +72,7 @@ async function main() {
       phone: '052-1111111',
       email: 'moshe@example.com',
       address: 'רחוב ביאליק 5, רמת גן',
+      idNumber: '012345678',
     },
   });
 
@@ -83,6 +84,7 @@ async function main() {
       phone: '054-2222222',
       email: 'rachel@example.com',
       address: 'רחוב דיזנגוף 100, תל אביב',
+      idNumber: '098765432',
     },
   });
 
