@@ -64,7 +64,8 @@ interface ClientDetail {
   phone: string;
   email?: string;
   address?: string;
-  idNumber?: string;
+  idNumber: string;
+  dateOfBirth?: string;
   notes?: string;
   createdAt: string;
   animals: Animal[];
@@ -207,6 +208,12 @@ export default function ClientDetailPage() {
               <div className="flex items-center gap-2 text-sm">
                 <FileText className="h-4 w-4 text-muted-foreground" />
                 <span dir="ltr">ת.ז. {client.idNumber}</span>
+              </div>
+            )}
+            {client.dateOfBirth && (
+              <div className="flex items-center gap-2 text-sm">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span>תאריך לידה: {new Date(client.dateOfBirth).toLocaleDateString('he-IL')}</span>
               </div>
             )}
             {client.notes && (

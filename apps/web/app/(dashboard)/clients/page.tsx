@@ -17,7 +17,8 @@ interface Client {
   phone: string;
   email?: string;
   address?: string;
-  idNumber?: string;
+  idNumber: string;
+  dateOfBirth?: string;
   notes?: string;
   animals?: { id: string; name: string }[];
 }
@@ -37,6 +38,7 @@ const emptyForm = {
   email: '',
   address: '',
   idNumber: '',
+  dateOfBirth: '',
   notes: '',
 };
 
@@ -93,6 +95,7 @@ export default function ClientsPage() {
       email: client.email || '',
       address: client.address || '',
       idNumber: client.idNumber || '',
+      dateOfBirth: client.dateOfBirth ? client.dateOfBirth.split('T')[0] : '',
       notes: client.notes || '',
     });
     setEditingId(client.id);
@@ -101,8 +104,8 @@ export default function ClientsPage() {
   };
 
   const handleSave = async () => {
-    if (!form.firstName || !form.lastName || !form.phone) {
-      setFormError('שם פרטי, שם משפחה וטלפון הם שדות חובה');
+    if (!form.firstName || !form.lastName || !form.phone || !form.idNumber) {
+      setFormError('שם פרטי, שם משפחה, טלפון ותעודת זהות הם שדות חובה');
       return;
     }
     setSaving(true);
@@ -113,7 +116,7 @@ export default function ClientsPage() {
       // Remove empty optional fields
       if (!body.email) delete body.email;
       if (!body.address) delete body.address;
-      if (!body.idNumber) delete body.idNumber;
+      if (!body.dateOfBirth) delete body.dateOfBirth;
       if (!body.notes) delete body.notes;
 
       if (editingId) {
@@ -211,10 +214,19 @@ export default function ClientsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>תעודת זהות</Label>
+                <Label>תעודת זהות *</Label>
                 <Input
                   value={form.idNumber}
                   onChange={(e) => setForm({ ...form, idNumber: e.target.value })}
+                  dir="ltr"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>תאריך לידה</Label>
+                <Input
+                  type="date"
+                  value={form.dateOfBirth}
+                  onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
                   dir="ltr"
                 />
               </div>
