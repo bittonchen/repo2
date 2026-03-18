@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -321,7 +322,11 @@ export default function AnimalsPage() {
                 <tbody>
                   {filtered.map((animal) => (
                     <tr key={animal.id} className="border-b last:border-0">
-                      <td className="py-3 font-medium">{animal.name}</td>
+                      <td className="py-3 font-medium">
+                        <Link href={`/animals/${animal.id}`} className="text-blue-600 hover:underline">
+                          {animal.name}
+                        </Link>
+                      </td>
                       <td className="py-3">{speciesLabels[animal.species] || animal.species}</td>
                       <td className="py-3">{animal.breed || '—'}</td>
                       <td className="py-3">{animal.client ? `${animal.client.firstName} ${animal.client.lastName}` : '—'}</td>

@@ -21,7 +21,22 @@ export class AnimalsService {
   async findById(tenantId: string, id: string) {
     const animal = await this.prisma.animal.findFirst({
       where: { id, tenantId },
-      include: { client: true, medicalRecords: { orderBy: { date: 'desc' } } },
+      include: {
+        client: true,
+        medicalRecords: {
+          orderBy: { date: 'desc' },
+          include: { veterinarian: { select: { id: true, name: true } } },
+        },
+        appointments: {
+          orderBy: { startTime: 'desc' },
+          include: {
+            veterinarian: { select: { id: true, name: true } },
+          },
+        },
+        reminders: {
+          orderBy: { sendAt: 'desc' },
+        },
+      },
     });
     if (!animal) throw new NotFoundException('Animal not found');
     return animal;

@@ -415,7 +415,7 @@ export default function ClientDetailPage() {
                       <PawPrint className="h-5 w-5 text-purple-600" />
                     </div>
                     <div>
-                      <div className="font-medium">{animal.name}</div>
+                      <Link href={`/animals/${animal.id}`} className="font-medium text-blue-600 hover:underline" onClick={(e) => e.stopPropagation()}>{animal.name}</Link>
                       <div className="text-xs text-muted-foreground">
                         {speciesLabels[animal.species] || animal.species}
                         {animal.breed ? ` • ${animal.breed}` : ''}
