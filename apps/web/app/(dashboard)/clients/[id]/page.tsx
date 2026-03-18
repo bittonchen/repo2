@@ -123,7 +123,9 @@ export default function ClientDetailPage() {
   const [animalFormError, setAnimalFormError] = useState('');
   const [animalSaving, setAnimalSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportingAnimal, setExportingAnimal] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const animalRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const handleExportPDF = async () => {
     if (!client || !contentRef.current) return;
@@ -169,6 +171,47 @@ export default function ClientDetailPage() {
       console.error('PDF export error:', err);
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleExportAnimalPDF = async (animal: Animal) => {
+    const el = animalRefs.current[animal.id];
+    if (!el) return;
+    setExportingAnimal(animal.id);
+    try {
+      const html2canvas = (await import('html2canvas-pro')).default;
+      const { jsPDF } = await import('jspdf');
+
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+      });
+
+      const imgWidth = 210;
+      const pageHeight = 297;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = -(imgHeight - heightLeft);
+        pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      const ownerName = client ? `${client.firstName}_${client.lastName}` : '';
+      pdf.save(`${animal.name}_${ownerName}_תיק_חיה.pdf`);
+    } catch (err) {
+      console.error('Animal PDF export error:', err);
+    } finally {
+      setExportingAnimal(null);
     }
   };
 
@@ -390,7 +433,18 @@ export default function ClientDetailPage() {
                 </button>
 
                 {expandedAnimal === animal.id && (
-                  <div className="border-t bg-gray-50 p-4">
+                  <div className="border-t bg-gray-50 p-4" ref={(el) => { animalRefs.current[animal.id] = el; }}>
+                    <div className="mb-3 flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); handleExportAnimalPDF(animal); }}
+                        disabled={exportingAnimal === animal.id}
+                      >
+                        <Download className="ml-1 h-3.5 w-3.5" />
+                        {exportingAnimal === animal.id ? 'מייצא...' : 'ייצוא PDF'}
+                      </Button>
+                    </div>
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                       <div>
                         <div className="text-xs text-muted-foreground">מין</div>
