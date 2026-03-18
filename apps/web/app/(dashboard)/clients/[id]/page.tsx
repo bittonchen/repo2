@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   ArrowRight, Phone, Mail, MapPin, PawPrint, Calendar,
-  Receipt, FileText, User, Clock, CreditCard, Plus, Download,
+  Receipt, FileText, User, Clock, CreditCard, Plus, Download, Pencil,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { getToken } from '@/lib/auth';
@@ -115,6 +115,13 @@ export default function ClientDetailPage() {
   const [loading, setLoading] = useState(true);
   const [expandedAnimal, setExpandedAnimal] = useState<string | null>(null);
 
+  const [showEditClient, setShowEditClient] = useState(false);
+  const [clientForm, setClientForm] = useState({
+    firstName: '', lastName: '', phone: '', email: '', address: '', idNumber: '', dateOfBirth: '', notes: '',
+  });
+  const [clientFormError, setClientFormError] = useState('');
+  const [clientSaving, setClientSaving] = useState(false);
+
   const [showAddAnimal, setShowAddAnimal] = useState(false);
   const [animalForm, setAnimalForm] = useState({
     name: '', species: 'dog', breed: '', gender: 'unknown',
@@ -215,6 +222,50 @@ export default function ClientDetailPage() {
     }
   };
 
+  const openEditClient = () => {
+    if (!client) return;
+    setClientForm({
+      firstName: client.firstName,
+      lastName: client.lastName,
+      phone: client.phone,
+      email: client.email || '',
+      address: client.address || '',
+      idNumber: client.idNumber || '',
+      dateOfBirth: client.dateOfBirth ? client.dateOfBirth.split('T')[0] : '',
+      notes: client.notes || '',
+    });
+    setClientFormError('');
+    setShowEditClient(true);
+  };
+
+  const handleSaveClient = async () => {
+    if (!clientForm.firstName || !clientForm.lastName || !clientForm.phone || !clientForm.idNumber) {
+      setClientFormError('שם פרטי, שם משפחה, טלפון ותעודת זהות הם שדות חובה');
+      return;
+    }
+    setClientSaving(true);
+    setClientFormError('');
+    try {
+      const token = getToken();
+      const body: any = { ...clientForm };
+      if (!body.email) delete body.email;
+      if (!body.address) delete body.address;
+      if (!body.dateOfBirth) delete body.dateOfBirth;
+      if (!body.notes) delete body.notes;
+      await apiFetch(`/clients/${params.id}`, {
+        method: 'PATCH',
+        token: token || undefined,
+        body: JSON.stringify(body),
+      });
+      setShowEditClient(false);
+      fetchClient();
+    } catch (err: any) {
+      setClientFormError(err.message || 'שגיאה בשמירה');
+    } finally {
+      setClientSaving(false);
+    }
+  };
+
   const fetchClient = async () => {
     const token = getToken();
     if (!token || !params.id) return;
@@ -275,11 +326,73 @@ export default function ClientDetailPage() {
             </p>
           </div>
         </div>
-        <Button variant="outline" onClick={handleExportPDF} disabled={exporting}>
-          <Download className="ml-2 h-4 w-4" />
-          {exporting ? 'מייצא...' : 'ייצוא PDF'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={openEditClient}>
+            <Pencil className="ml-2 h-4 w-4" />
+            עריכת לקוח
+          </Button>
+          <Button variant="outline" onClick={handleExportPDF} disabled={exporting}>
+            <Download className="ml-2 h-4 w-4" />
+            {exporting ? 'מייצא...' : 'ייצוא PDF'}
+          </Button>
+        </div>
       </div>
+
+      {/* Edit Client Modal */}
+      {showEditClient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-xl font-bold">עריכת לקוח</h2>
+            {clientFormError && (
+              <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-600">{clientFormError}</div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>שם פרטי *</Label>
+                <Input value={clientForm.firstName} onChange={(e) => setClientForm({ ...clientForm, firstName: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>שם משפחה *</Label>
+                <Input value={clientForm.lastName} onChange={(e) => setClientForm({ ...clientForm, lastName: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>טלפון *</Label>
+                <Input value={clientForm.phone} onChange={(e) => setClientForm({ ...clientForm, phone: e.target.value })} dir="ltr" />
+              </div>
+              <div className="space-y-2">
+                <Label>אימייל</Label>
+                <Input type="email" value={clientForm.email} onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })} dir="ltr" />
+              </div>
+              <div className="col-span-2 space-y-2">
+                <Label>כתובת</Label>
+                <Input value={clientForm.address} onChange={(e) => setClientForm({ ...clientForm, address: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>תעודת זהות *</Label>
+                <Input value={clientForm.idNumber} onChange={(e) => setClientForm({ ...clientForm, idNumber: e.target.value })} dir="ltr" />
+              </div>
+              <div className="space-y-2">
+                <Label>תאריך לידה</Label>
+                <Input type="date" value={clientForm.dateOfBirth} onChange={(e) => setClientForm({ ...clientForm, dateOfBirth: e.target.value })} dir="ltr" />
+              </div>
+              <div className="col-span-2 space-y-2">
+                <Label>הערות</Label>
+                <textarea
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={clientForm.notes}
+                  onChange={(e) => setClientForm({ ...clientForm, notes: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowEditClient(false)}>ביטול</Button>
+              <Button onClick={handleSaveClient} disabled={clientSaving}>
+                {clientSaving ? 'שומר...' : 'שמירה'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PDF Content Area */}
       <div ref={contentRef}>
