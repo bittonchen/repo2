@@ -5,9 +5,11 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   ArrowRight, Phone, Mail, MapPin, PawPrint, Calendar,
-  Receipt, FileText, User, Clock, CreditCard,
+  Receipt, FileText, User, Clock, CreditCard, Plus,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { getToken } from '@/lib/auth';
@@ -112,23 +114,55 @@ export default function ClientDetailPage() {
   const [loading, setLoading] = useState(true);
   const [expandedAnimal, setExpandedAnimal] = useState<string | null>(null);
 
+  const [showAddAnimal, setShowAddAnimal] = useState(false);
+  const [animalForm, setAnimalForm] = useState({
+    name: '', species: 'dog', breed: '', gender: 'unknown',
+    dateOfBirth: '', weight: '', microchipNumber: '', isNeutered: false, notes: '',
+  });
+  const [animalFormError, setAnimalFormError] = useState('');
+  const [animalSaving, setAnimalSaving] = useState(false);
+
+  const fetchClient = async () => {
+    const token = getToken();
+    if (!token || !params.id) return;
+    try {
+      const res = await apiFetch<ClientDetail>(`/clients/${params.id}`, { token });
+      setClient(res);
+      if (res.animals?.length > 0 && !expandedAnimal) setExpandedAnimal(res.animals[0].id);
+    } catch {
+      router.push('/clients');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchClient = async () => {
-      const token = getToken();
-      if (!token || !params.id) return;
-      try {
-        const res = await apiFetch<ClientDetail>(`/clients/${params.id}`, { token });
-        setClient(res);
-        // Auto-expand first animal
-        if (res.animals?.length > 0) setExpandedAnimal(res.animals[0].id);
-      } catch {
-        router.push('/clients');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchClient();
-  }, [params.id, router]);
+  }, [params.id]);
+
+  const openAddAnimal = () => {
+    setAnimalForm({ name: '', species: 'dog', breed: '', gender: 'unknown', dateOfBirth: '', weight: '', microchipNumber: '', isNeutered: false, notes: '' });
+    setAnimalFormError('');
+    setShowAddAnimal(true);
+  };
+
+  const handleAddAnimal = async () => {
+    if (!animalForm.name) { setAnimalFormError('שם החיה הוא שדה חובה'); return; }
+    setAnimalSaving(true); setAnimalFormError('');
+    try {
+      const token = getToken();
+      const body: any = { clientId: params.id, name: animalForm.name, species: animalForm.species, gender: animalForm.gender, isNeutered: animalForm.isNeutered };
+      if (animalForm.breed) body.breed = animalForm.breed;
+      if (animalForm.dateOfBirth) body.dateOfBirth = animalForm.dateOfBirth;
+      if (animalForm.weight) body.weight = parseFloat(animalForm.weight);
+      if (animalForm.microchipNumber) body.microchipNumber = animalForm.microchipNumber;
+      if (animalForm.notes) body.notes = animalForm.notes;
+      await apiFetch('/animals', { method: 'POST', token: token || undefined, body: JSON.stringify(body) });
+      setShowAddAnimal(false);
+      fetchClient();
+    } catch (err: any) { setAnimalFormError(err.message || 'שגיאה בשמירה'); }
+    finally { setAnimalSaving(false); }
+  };
 
   if (loading) return <div className="py-8 text-center text-muted-foreground">טוען...</div>;
   if (!client) return null;
@@ -208,12 +242,53 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
+      {/* Add Animal Modal */}
+      {showAddAnimal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-xl font-bold">הוספת חיה ל{client.firstName} {client.lastName}</h2>
+            {animalFormError && <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-600">{animalFormError}</div>}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2"><Label>שם החיה *</Label><Input value={animalForm.name} onChange={(e) => setAnimalForm({ ...animalForm, name: e.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>סוג</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={animalForm.species} onChange={(e) => setAnimalForm({ ...animalForm, species: e.target.value })}>
+                  {Object.entries(speciesLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2"><Label>גזע</Label><Input value={animalForm.breed} onChange={(e) => setAnimalForm({ ...animalForm, breed: e.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>מין</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={animalForm.gender} onChange={(e) => setAnimalForm({ ...animalForm, gender: e.target.value })}>
+                  {Object.entries(genderLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2"><Label>תאריך לידה</Label><Input type="date" value={animalForm.dateOfBirth} onChange={(e) => setAnimalForm({ ...animalForm, dateOfBirth: e.target.value })} dir="ltr" /></div>
+              <div className="space-y-2"><Label>משקל (ק&quot;ג)</Label><Input type="number" step="0.1" value={animalForm.weight} onChange={(e) => setAnimalForm({ ...animalForm, weight: e.target.value })} dir="ltr" /></div>
+              <div className="space-y-2"><Label>מספר שבב</Label><Input value={animalForm.microchipNumber} onChange={(e) => setAnimalForm({ ...animalForm, microchipNumber: e.target.value })} dir="ltr" /></div>
+              <div className="flex items-center gap-2 pt-6">
+                <input type="checkbox" id="isNeutered" checked={animalForm.isNeutered} onChange={(e) => setAnimalForm({ ...animalForm, isNeutered: e.target.checked })} className="h-4 w-4 rounded border-gray-300" />
+                <Label htmlFor="isNeutered">מסורס/מעוקרת</Label>
+              </div>
+              <div className="col-span-2 space-y-2"><Label>הערות</Label><textarea className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={animalForm.notes} onChange={(e) => setAnimalForm({ ...animalForm, notes: e.target.value })} /></div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowAddAnimal(false)}>ביטול</Button>
+              <Button onClick={handleAddAnimal} disabled={animalSaving}>{animalSaving ? 'שומר...' : 'הוספה'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Animals */}
       <div className="mb-6">
-        <h2 className="mb-3 text-lg font-semibold flex items-center gap-2">
-          <PawPrint className="h-5 w-5 text-purple-600" />
-          בעלי חיים ({client.animals.length})
-        </h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <PawPrint className="h-5 w-5 text-purple-600" />
+            בעלי חיים ({client.animals.length})
+          </h2>
+          <Button size="sm" onClick={openAddAnimal}><Plus className="ml-1 h-4 w-4" />הוסף חיה</Button>
+        </div>
         {client.animals.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
