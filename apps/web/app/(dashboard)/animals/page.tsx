@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -65,6 +65,19 @@ export default function AnimalsPage() {
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const [showDetail, setShowDetail] = useState<Animal | null>(null);
+  const [clientSearch, setClientSearch] = useState('');
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const clientDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(e.target as Node)) {
+        setClientDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchAnimals = useCallback(async () => {
     setLoading(true);
@@ -93,7 +106,7 @@ export default function AnimalsPage() {
       `${a.client?.firstName} ${a.client?.lastName}`.toLowerCase().includes(s);
   });
 
-  const openCreate = () => { setForm(emptyForm); setEditingId(null); setFormError(''); setShowForm(true); };
+  const openCreate = () => { setForm(emptyForm); setEditingId(null); setFormError(''); setClientSearch(''); setClientDropdownOpen(false); setShowForm(true); };
 
   const openEdit = (animal: Animal) => {
     setForm({
@@ -154,10 +167,66 @@ export default function AnimalsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 space-y-2">
                 <Label>בעלים *</Label>
-                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })} disabled={!!editingId}>
-                  <option value="">בחרו בעלים</option>
-                  {clients.map((c) => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
-                </select>
+                {editingId ? (
+                  <div className="flex h-10 w-full items-center rounded-md border border-input bg-gray-50 px-3 py-2 text-sm text-muted-foreground">
+                    {clients.find((c) => c.id === form.clientId)
+                      ? `${clients.find((c) => c.id === form.clientId)!.firstName} ${clients.find((c) => c.id === form.clientId)!.lastName}`
+                      : 'בעלים'}
+                  </div>
+                ) : (
+                  <div className="relative" ref={clientDropdownRef}>
+                    <Input
+                      placeholder="חפשו לקוח לפי שם..."
+                      value={clientSearch}
+                      onChange={(e) => {
+                        setClientSearch(e.target.value);
+                        setClientDropdownOpen(true);
+                        if (!e.target.value) setForm({ ...form, clientId: '' });
+                      }}
+                      onFocus={() => setClientDropdownOpen(true)}
+                    />
+                    {form.clientId && !clientDropdownOpen && (
+                      <button
+                        className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-gray-400 hover:text-gray-600"
+                        onClick={() => { setForm({ ...form, clientId: '' }); setClientSearch(''); setClientDropdownOpen(true); }}
+                        type="button"
+                      >✕</button>
+                    )}
+                    {clientDropdownOpen && (
+                      <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-white shadow-lg">
+                        {clients
+                          .filter((c) => {
+                            if (!clientSearch) return true;
+                            const s = clientSearch.toLowerCase();
+                            return `${c.firstName} ${c.lastName}`.toLowerCase().includes(s) ||
+                              c.firstName.toLowerCase().includes(s) ||
+                              c.lastName.toLowerCase().includes(s);
+                          })
+                          .map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              className="flex w-full items-center px-3 py-2 text-sm hover:bg-blue-50 text-right"
+                              onClick={() => {
+                                setForm({ ...form, clientId: c.id });
+                                setClientSearch(`${c.firstName} ${c.lastName}`);
+                                setClientDropdownOpen(false);
+                              }}
+                            >
+                              {c.firstName} {c.lastName}
+                            </button>
+                          ))}
+                        {clients.filter((c) => {
+                          if (!clientSearch) return true;
+                          const s = clientSearch.toLowerCase();
+                          return `${c.firstName} ${c.lastName}`.toLowerCase().includes(s);
+                        }).length === 0 && (
+                          <div className="px-3 py-2 text-sm text-muted-foreground">לא נמצאו לקוחות</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="space-y-2"><Label>שם החיה *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
               <div className="space-y-2">
