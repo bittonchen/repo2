@@ -391,6 +391,24 @@ model Reminder {
   @@map("reminders")
 }
 
+// ===== Treatment Templates =====
+
+model TreatmentTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  type        String   // vaccination, surgery, checkup, dental, etc.
+  items       Json     @default("[]") // [{description, quantity, unitPrice}]
+  duration    Int      @default(30) // minutes
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("treatment_templates")
+}
+
 // ===== Message Logs =====
 
 model MessageLog {

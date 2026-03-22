@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { hasAccess } from '@/lib/roles';
+import { useTranslation } from '@/lib/i18n';
 import {
   LayoutDashboard,
   Users,
@@ -20,31 +21,35 @@ import {
   Settings,
   CreditCard,
   ShieldCheck,
+  ClipboardList,
   Menu,
   X,
 } from 'lucide-react';
 
 const navItems = [
-  { href: '/dashboard', label: 'דשבורד', icon: LayoutDashboard },
-  { href: '/clients', label: 'לקוחות', icon: Users },
-  { href: '/animals', label: 'חיות', icon: PawPrint },
-  { href: '/appointments', label: 'תורים', icon: Calendar },
-  { href: '/inventory', label: 'מלאי', icon: Package },
-  { href: '/employees', label: 'עובדים', icon: UserCog },
-  { href: '/reminders', label: 'תזכורות', icon: Bell },
-  { href: '/messages', label: 'הודעות', icon: MessageSquare },
-  { href: '/pos', label: 'קופה', icon: Receipt },
-  { href: '/quotes', label: 'הצעות מחיר', icon: FileText },
-  { href: '/finance', label: 'פיננסי', icon: TrendingUp },
-  { href: '/settings', label: 'הגדרות', icon: Settings },
-  { href: '/subscription', label: 'מנויים', icon: CreditCard },
-  { href: '/admin', label: 'ניהול', icon: ShieldCheck },
+  { href: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+  { href: '/clients', labelKey: 'nav.clients', icon: Users },
+  { href: '/animals', labelKey: 'nav.animals', icon: PawPrint },
+  { href: '/appointments', labelKey: 'nav.appointments', icon: Calendar },
+  { href: '/inventory', labelKey: 'nav.inventory', icon: Package },
+  { href: '/employees', labelKey: 'nav.employees', icon: UserCog },
+  { href: '/reminders', labelKey: 'nav.reminders', icon: Bell },
+  { href: '/messages', labelKey: 'nav.messages', icon: MessageSquare },
+  { href: '/pos', labelKey: 'nav.pos', icon: Receipt },
+  { href: '/quotes', labelKey: 'nav.quotes', icon: FileText },
+  { href: '/finance', labelKey: 'nav.finance', icon: TrendingUp },
+  { href: '/templates', labelKey: 'nav.templates', icon: ClipboardList },
+  { href: '/settings', labelKey: 'nav.settings', icon: Settings },
+  { href: '/subscription', labelKey: 'nav.subscription', icon: CreditCard },
+  { href: '/admin', labelKey: 'nav.admin', icon: ShieldCheck },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { t, dir } = useTranslation();
   const visibleItems = navItems.filter((item) => hasAccess(item.href));
+  const isRtl = dir === 'rtl';
 
   // Close mobile sidebar on navigation
   useEffect(() => {
@@ -77,7 +82,7 @@ export function Sidebar() {
                   )}
                 >
                   <item.icon className="h-5 w-5" />
-                  {item.label}
+                  {t(item.labelKey)}
                 </Link>
               </li>
             );
@@ -91,7 +96,10 @@ export function Sidebar() {
     <>
       {/* Mobile hamburger */}
       <button
-        className="fixed right-4 top-4 z-40 rounded-lg border bg-white p-2 shadow-sm md:hidden"
+        className={cn(
+          'fixed top-4 z-40 rounded-lg border bg-white p-2 shadow-sm md:hidden',
+          isRtl ? 'right-4' : 'left-4',
+        )}
         onClick={() => setMobileOpen(true)}
       >
         <Menu className="h-5 w-5" />
@@ -105,15 +113,23 @@ export function Sidebar() {
       {/* Mobile sidebar */}
       <aside
         className={cn(
-          'fixed right-0 top-0 z-50 flex h-screen w-64 flex-col bg-white transition-transform duration-200 md:hidden',
-          mobileOpen ? 'translate-x-0' : 'translate-x-full',
+          'fixed top-0 z-50 flex h-screen w-64 flex-col bg-white transition-transform duration-200 md:hidden',
+          isRtl ? 'right-0' : 'left-0',
+          isRtl
+            ? mobileOpen ? 'translate-x-0' : 'translate-x-full'
+            : mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
         {sidebarContent}
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="fixed right-0 top-0 z-30 hidden h-screen w-64 flex-col border-l bg-white md:flex">
+      <aside
+        className={cn(
+          'fixed top-0 z-30 hidden h-screen w-64 flex-col bg-white md:flex',
+          isRtl ? 'right-0 border-l' : 'left-0 border-r',
+        )}
+      >
         {sidebarContent}
       </aside>
     </>

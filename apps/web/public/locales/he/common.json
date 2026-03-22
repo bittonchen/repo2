@@ -8,9 +8,29 @@
     "inventory": "מלאי",
     "employees": "עובדים",
     "reminders": "תזכורות",
+    "messages": "הודעות",
     "pos": "קופה",
+    "quotes": "הצעות מחיר",
     "finance": "פיננסי",
-    "settings": "הגדרות"
+    "settings": "הגדרות",
+    "subscription": "מנויים",
+    "admin": "ניהול",
+    "templates": "תבניות טיפול"
+  },
+  "header": {
+    "search_placeholder": "חיפוש לקוחות, חיות, מלאי...",
+    "notifications": "התראות",
+    "no_notifications": "אין התראות חדשות",
+    "logout": "יציאה",
+    "low_stock": "מלאי נמוך",
+    "pending_appointment": "תור ממתין לאישור",
+    "pending_reminder": "תזכורת ממתינה"
+  },
+  "search": {
+    "clients": "לקוחות",
+    "animals": "חיות",
+    "inventory": "מלאי",
+    "no_results": "לא נמצאו תוצאות"
   },
   "auth": {
     "login": "התחברות",

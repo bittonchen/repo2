@@ -6,14 +6,13 @@ import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { isAuthenticated } from '@/lib/auth';
 import { hasAccess } from '@/lib/roles';
+import { I18nProvider, useTranslation } from '@/lib/i18n';
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function DashboardContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { dir } = useTranslation();
+  const isRtl = dir === 'rtl';
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -27,12 +26,24 @@ export default function DashboardLayout({
   }, [pathname, router]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" dir={dir}>
       <Sidebar />
-      <div className="md:mr-64">
+      <div className={isRtl ? 'md:mr-64' : 'md:ml-64'}>
         <Header />
         <main className="p-3 pt-16 md:p-6 md:pt-6">{children}</main>
       </div>
     </div>
+  );
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <I18nProvider>
+      <DashboardContent>{children}</DashboardContent>
+    </I18nProvider>
   );
 }

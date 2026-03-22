@@ -8,9 +8,29 @@
     "inventory": "Inventory",
     "employees": "Employees",
     "reminders": "Reminders",
+    "messages": "Messages",
     "pos": "POS",
+    "quotes": "Quotes",
     "finance": "Finance",
-    "settings": "Settings"
+    "settings": "Settings",
+    "subscription": "Subscription",
+    "admin": "Admin",
+    "templates": "Treatment Templates"
+  },
+  "header": {
+    "search_placeholder": "Search clients, animals, inventory...",
+    "notifications": "Notifications",
+    "no_notifications": "No new notifications",
+    "logout": "Logout",
+    "low_stock": "Low stock",
+    "pending_appointment": "Pending appointment",
+    "pending_reminder": "Pending reminder"
+  },
+  "search": {
+    "clients": "Clients",
+    "animals": "Animals",
+    "inventory": "Inventory",
+    "no_results": "No results found"
   },
   "auth": {
     "login": "Login",

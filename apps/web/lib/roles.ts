@@ -19,6 +19,8 @@ const rolePermissions: Record<string, UserRole[]> = {
   '/admin': ['owner', 'admin'],
   '/settings': ['owner', 'admin'],
   '/subscription': ['owner', 'admin'],
+  '/templates': ['owner', 'admin', 'veterinarian', 'technician', 'receptionist'],
+  '/search': ['owner', 'admin', 'veterinarian', 'technician', 'receptionist'],
 };
 
 export function hasAccess(path: string): boolean {

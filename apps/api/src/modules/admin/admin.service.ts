@@ -147,6 +147,81 @@ export class AdminService {
     };
   }
 
+  async getNotifications(tenantId: string) {
+    const now = new Date();
+    const notifications: Array<{
+      type: string;
+      title: string;
+      message: string;
+      createdAt: Date;
+    }> = [];
+
+    // Low stock items
+    const lowStockItems = await this.prisma.$queryRawUnsafe<
+      Array<{ id: string; name: string; quantity: number; minQuantity: number; createdAt: Date }>
+    >(
+      `SELECT id, name, quantity, "minQuantity", "createdAt"
+       FROM inventory_items
+       WHERE "tenantId" = $1 AND quantity < "minQuantity"`,
+      tenantId,
+    );
+
+    for (const item of lowStockItems) {
+      notifications.push({
+        type: 'low_stock',
+        title: 'Low Stock Alert',
+        message: `${item.name} has ${item.quantity} units remaining (minimum: ${item.minQuantity})`,
+        createdAt: item.createdAt,
+      });
+    }
+
+    // Unconfirmed appointments
+    const unconfirmedAppointments = await this.prisma.appointment.findMany({
+      where: {
+        tenantId,
+        status: 'pending',
+        startTime: { gt: now },
+      },
+      include: {
+        client: { select: { firstName: true, lastName: true } },
+        animal: { select: { name: true } },
+      },
+      orderBy: { startTime: 'asc' },
+    });
+
+    for (const appt of unconfirmedAppointments) {
+      notifications.push({
+        type: 'unconfirmed_appointment',
+        title: 'Unconfirmed Appointment',
+        message: `Appointment for ${appt.client?.firstName} ${appt.client?.lastName} (${appt.animal?.name}) on ${appt.startTime.toISOString()} is still pending`,
+        createdAt: appt.createdAt,
+      });
+    }
+
+    // Pending reminders
+    const pendingReminders = await this.prisma.reminder.findMany({
+      where: { tenantId, status: 'pending' },
+      include: {
+        animal: { select: { name: true } },
+      },
+      orderBy: { sendAt: 'asc' },
+    });
+
+    for (const reminder of pendingReminders) {
+      notifications.push({
+        type: 'pending_reminder',
+        title: 'Pending Reminder',
+        message: `Reminder for ${reminder.animal?.name ?? 'unknown'}: "${reminder.message}" scheduled for ${reminder.sendAt.toISOString()}`,
+        createdAt: reminder.createdAt,
+      });
+    }
+
+    // Sort by createdAt descending
+    notifications.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    return notifications;
+  }
+
   async getClinicStats(tenantId: string) {
     const now = new Date();
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);

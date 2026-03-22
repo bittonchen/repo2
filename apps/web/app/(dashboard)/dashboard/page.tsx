@@ -3,7 +3,18 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Users, PawPrint, Package, AlertTriangle, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Calendar,
+  Users,
+  PawPrint,
+  Package,
+  AlertTriangle,
+  Clock,
+  UserPlus,
+  Receipt,
+  ClipboardList,
+} from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 
@@ -24,6 +35,31 @@ interface LowStockItem {
   quantity: number;
   min_quantity: number;
 }
+
+const statusLabels: Record<string, string> = {
+  scheduled: 'מתוכנן',
+  confirmed: 'מאושר',
+  'in-progress': 'בטיפול',
+  completed: 'הושלם',
+  cancelled: 'בוטל',
+  'no-show': 'לא הגיע',
+};
+
+const statusColors: Record<string, string> = {
+  scheduled: 'bg-blue-100 text-blue-700',
+  confirmed: 'bg-green-100 text-green-700',
+  'in-progress': 'bg-yellow-100 text-yellow-700',
+  completed: 'bg-gray-100 text-gray-600',
+  cancelled: 'bg-red-100 text-red-700',
+  'no-show': 'bg-orange-100 text-orange-700',
+};
+
+const quickActions = [
+  { label: 'תור חדש', href: '/appointments?new=1', icon: Calendar, color: 'text-blue-600' },
+  { label: 'לקוח חדש', href: '/clients?new=1', icon: UserPlus, color: 'text-green-600' },
+  { label: 'חשבונית חדשה', href: '/pos?new=1', icon: Receipt, color: 'text-purple-600' },
+  { label: 'תבנית טיפול', href: '/templates', icon: ClipboardList, color: 'text-orange-600' },
+];
 
 export default function DashboardPage() {
   const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
@@ -70,6 +106,7 @@ export default function DashboardPage() {
     <div>
       <h1 className="mb-6 text-2xl font-bold">דשבורד</h1>
 
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <Link key={stat.title} href={stat.href}>
@@ -88,13 +125,35 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Quick Actions */}
+      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {quickActions.map((action) => (
+          <Link key={action.label} href={action.href}>
+            <Card className="cursor-pointer transition hover:shadow-md hover:border-primary/30">
+              <CardContent className="flex flex-col items-center justify-center gap-2 py-6">
+                <action.icon className={`h-8 w-8 ${action.color}`} />
+                <span className="text-sm font-medium">{action.label}</span>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
+
+      {/* Appointments & Alerts */}
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              תורים קרובים היום
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                תורים קרובים היום
+              </CardTitle>
+              <Link href="/appointments">
+                <Button variant="ghost" size="sm" className="text-xs">
+                  הצג הכל
+                </Button>
+              </Link>
+            </div>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -105,13 +164,30 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 {upcomingAppts.map((appt) => (
                   <div key={appt.id} className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <div className="font-medium">
-                        {appt.animal?.name} — {appt.client?.firstName} {appt.client?.lastName}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">
+                          {appt.animal?.name} — {appt.client?.firstName} {appt.client?.lastName}
+                        </span>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            statusColors[appt.status] || 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {statusLabels[appt.status] || appt.status}
+                        </span>
                       </div>
-                      <div className="text-sm text-muted-foreground">{appt.type}</div>
+                      <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                        <span>{appt.type}</span>
+                        {appt.veterinarian?.name && (
+                          <>
+                            <span className="text-gray-300">|</span>
+                            <span>ד״ר {appt.veterinarian.name}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-sm" dir="ltr">
+                    <div className="text-sm font-medium" dir="ltr">
                       {new Date(appt.startTime).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>

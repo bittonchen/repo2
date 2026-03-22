@@ -18,6 +18,8 @@ import { AdminModule } from './modules/admin/admin.module';
 import { PlansModule } from './modules/plans/plans.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { PaymentModule } from './modules/payment/payment.module';
+import { SearchModule } from './modules/search/search.module';
+import { TreatmentTemplatesModule } from './modules/treatment-templates/treatment-templates.module';
 
 @Module({
   imports: [
@@ -40,6 +42,8 @@ import { PaymentModule } from './modules/payment/payment.module';
     PlansModule,
     UploadModule,
     PaymentModule,
+    SearchModule,
+    TreatmentTemplatesModule,
   ],
 })
 export class AppModule {}

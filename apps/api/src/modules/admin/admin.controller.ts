@@ -23,4 +23,9 @@ export class AdminController {
   getClinicStats(@CurrentTenant() tenantId: string) {
     return this.adminService.getClinicStats(tenantId);
   }
+
+  @Get('notifications')
+  getNotifications(@CurrentTenant() tenantId: string) {
+    return this.adminService.getNotifications(tenantId);
+  }
 }
