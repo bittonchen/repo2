@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, DragEvent } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, ChevronRight, ChevronLeft, Clock, CalendarDays, Calendar as CalendarIcon, Download } from 'lucide-react';
+import { Plus, ChevronRight, ChevronLeft, Clock, CalendarDays, Calendar as CalendarIcon, Download, Eye } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 
@@ -193,6 +194,9 @@ export default function AppointmentsPage() {
   };
 
   const updateStatus = async (id: string, status: string) => {
+    const original = [...appointments];
+    // Optimistic update
+    setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
     try {
       const token = getToken();
       await apiFetch(`/appointments/${id}/status`, {
@@ -200,8 +204,10 @@ export default function AppointmentsPage() {
         token: token || undefined,
         body: JSON.stringify({ status }),
       });
-      fetchAppointments();
-    } catch { /* */ }
+    } catch {
+      // Rollback on error
+      setAppointments(original);
+    }
   };
 
   const downloadIcal = async (id: string) => {
@@ -297,6 +303,14 @@ export default function AppointmentsPage() {
     // Skip if dropped on the same day
     if (formatDate(newStart) === formatDate(originalStart)) return;
 
+    const original = [...appointments];
+    // Optimistic update
+    setAppointments(prev => prev.map(a =>
+      a.id === dragData.appointmentId
+        ? { ...a, startTime: newStart.toISOString(), endTime: newEnd.toISOString() }
+        : a
+    ));
+
     try {
       const token = getToken();
       await apiFetch(`/appointments/${dragData.appointmentId}`, {
@@ -307,8 +321,10 @@ export default function AppointmentsPage() {
           endTime: newEnd.toISOString(),
         }),
       });
-      fetchAppointments();
-    } catch { /* */ }
+    } catch {
+      // Rollback on error
+      setAppointments(original);
+    }
   };
 
   const handleDropOnHour = async (e: DragEvent<HTMLDivElement>, targetHour: number) => {
@@ -331,6 +347,14 @@ export default function AppointmentsPage() {
     newStart.setHours(targetHour, 0, 0, 0);
     const newEnd = new Date(newStart.getTime() + durationMs);
 
+    const original = [...appointments];
+    // Optimistic update
+    setAppointments(prev => prev.map(a =>
+      a.id === dragData.appointmentId
+        ? { ...a, startTime: newStart.toISOString(), endTime: newEnd.toISOString() }
+        : a
+    ));
+
     try {
       const token = getToken();
       await apiFetch(`/appointments/${dragData.appointmentId}`, {
@@ -341,8 +365,10 @@ export default function AppointmentsPage() {
           endTime: newEnd.toISOString(),
         }),
       });
-      fetchAppointments();
-    } catch { /* */ }
+    } catch {
+      // Rollback on error
+      setAppointments(original);
+    }
   };
 
   // ─── End Drag & Drop handlers ────────────────────────────────────────
@@ -363,11 +389,16 @@ export default function AppointmentsPage() {
         <span dir="ltr">{formatTime(appt.startTime)} - {formatTime(appt.endTime)}</span>
       </div>
       <div className="mt-1 font-medium">
-        {appt.animal?.name} — {appt.client?.firstName} {appt.client?.lastName}
+        <Link href={`/appointments/${appt.id}`} className="hover:underline">{appt.animal?.name}</Link> — {appt.client?.firstName} {appt.client?.lastName}
       </div>
-      <div className="text-xs">{appt.type}</div>
+      <div className="text-xs">
+        <Link href={`/appointments/${appt.id}`} className="hover:underline">{appt.type}</Link>
+      </div>
       {appt.veterinarian && <div className="text-xs text-muted-foreground">{appt.veterinarian.name}</div>}
       <div className="mt-2 flex flex-wrap gap-1">
+        <Link href={`/appointments/${appt.id}`} className="rounded bg-white/80 px-2 py-0.5 text-xs text-gray-700 border inline-flex items-center gap-1" title="פרטי התור">
+          <Eye className="inline h-3 w-3" /> פרטים
+        </Link>
         {appt.status === 'pending' && (
           <button onClick={() => updateStatus(appt.id, 'confirmed')} className="rounded bg-blue-500 px-2 py-0.5 text-xs text-white">אשר</button>
         )}
@@ -518,11 +549,16 @@ export default function AppointmentsPage() {
                         <span dir="ltr">{formatTime(appt.startTime)} - {formatTime(appt.endTime)}</span>
                       </div>
                       <div className="mt-1 font-medium">
-                        {appt.animal?.name} — {appt.client?.firstName} {appt.client?.lastName}
+                        <Link href={`/appointments/${appt.id}`} className="hover:underline">{appt.animal?.name}</Link> — {appt.client?.firstName} {appt.client?.lastName}
                       </div>
-                      <div className="text-xs">{appt.type}</div>
+                      <div className="text-xs">
+                        <Link href={`/appointments/${appt.id}`} className="hover:underline">{appt.type}</Link>
+                      </div>
                       {appt.veterinarian && <div className="text-xs text-muted-foreground">{appt.veterinarian.name}</div>}
                       <div className="mt-2 flex flex-wrap gap-1">
+                        <Link href={`/appointments/${appt.id}`} className="rounded bg-white/80 px-2 py-0.5 text-xs text-gray-700 border inline-flex items-center gap-1" title="פרטי התור">
+                          <Eye className="inline h-3 w-3" /> פרטים
+                        </Link>
                         {appt.status === 'pending' && (
                           <button onClick={() => updateStatus(appt.id, 'confirmed')} className="rounded bg-blue-500 px-2 py-0.5 text-xs text-white">אשר</button>
                         )}

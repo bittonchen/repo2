@@ -74,4 +74,12 @@ export class PosController {
   cancel(@CurrentTenant() tenantId: string, @Param('id') id: string) {
     return this.posService.cancel(tenantId, id);
   }
+
+  @Get('client/:clientId/payments')
+  getClientPayments(
+    @CurrentTenant() tenantId: string,
+    @Param('clientId') clientId: string,
+  ) {
+    return this.posService.getClientPayments(tenantId, clientId);
+  }
 }

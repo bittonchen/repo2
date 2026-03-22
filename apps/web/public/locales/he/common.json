@@ -15,7 +15,8 @@
     "settings": "הגדרות",
     "subscription": "מנויים",
     "admin": "ניהול",
-    "templates": "תבניות טיפול"
+    "templates": "תבניות טיפול",
+    "vaccinations": "חיסונים"
   },
   "header": {
     "search_placeholder": "חיפוש לקוחות, חיות, מלאי...",

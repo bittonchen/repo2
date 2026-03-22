@@ -165,6 +165,32 @@ export class PosService {
     });
   }
 
+  async getClientPayments(tenantId: string, clientId: string) {
+    const invoices = await this.prisma.invoice.findMany({
+      where: { tenantId, clientId },
+      include: {
+        client: true,
+        items: true,
+      },
+      orderBy: { issuedAt: 'desc' },
+    });
+
+    const totalPaid = invoices.reduce((sum, inv) => sum + inv.paidAmount, 0);
+    const totalUnpaid = invoices.reduce(
+      (sum, inv) => sum + (inv.total - inv.paidAmount),
+      0,
+    );
+
+    return {
+      invoices,
+      summary: {
+        totalPaid,
+        totalUnpaid,
+        invoiceCount: invoices.length,
+      },
+    };
+  }
+
   async getNextInvoiceNumber(tenantId: string): Promise<string> {
     const lastInvoice = await this.prisma.invoice.findFirst({
       where: { tenantId },

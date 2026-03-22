@@ -20,6 +20,7 @@ import { UploadModule } from './modules/upload/upload.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { SearchModule } from './modules/search/search.module';
 import { TreatmentTemplatesModule } from './modules/treatment-templates/treatment-templates.module';
+import { MedicalRecordsModule } from './modules/medical-records/medical-records.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { TreatmentTemplatesModule } from './modules/treatment-templates/treatmen
     PaymentModule,
     SearchModule,
     TreatmentTemplatesModule,
+    MedicalRecordsModule,
   ],
 })
 export class AppModule {}

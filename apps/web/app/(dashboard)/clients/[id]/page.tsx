@@ -57,6 +57,24 @@ interface Invoice {
   createdAt: string;
 }
 
+interface PaymentInvoice {
+  id: string;
+  invoiceNumber: string;
+  date: string;
+  status: string;
+  itemsSummary: string;
+  total: number;
+  paidAmount: number;
+  paymentMethod?: string;
+}
+
+interface PaymentHistory {
+  invoices: PaymentInvoice[];
+  totalPaid: number;
+  totalUnpaid: number;
+  invoiceCount: number;
+}
+
 interface ClientDetail {
   id: string;
   firstName: string;
@@ -96,6 +114,10 @@ const invoiceStatusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700', sent: 'bg-blue-100 text-blue-700',
   paid: 'bg-green-100 text-green-700', partially_paid: 'bg-yellow-100 text-yellow-700',
   cancelled: 'bg-red-100 text-red-700',
+};
+const paymentMethodLabels: Record<string, string> = {
+  cash: 'מזומן', credit_card: 'כרטיס אשראי', bank_transfer: 'העברה בנקאית',
+  check: 'צ\'ק', bit: 'ביט', paybox: 'פייבוקס', other: 'אחר',
 };
 
 function calcAge(dob: string): string {
@@ -138,6 +160,9 @@ export default function ClientDetailPage() {
   });
   const [editAnimalFormError, setEditAnimalFormError] = useState('');
   const [editAnimalSaving, setEditAnimalSaving] = useState(false);
+
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistory | null>(null);
+  const [paymentLoading, setPaymentLoading] = useState(true);
 
   const [exporting, setExporting] = useState(false);
   const [exportingAnimal, setExportingAnimal] = useState<string | null>(null);
@@ -290,8 +315,23 @@ export default function ClientDetailPage() {
     }
   };
 
+  const fetchPaymentHistory = async () => {
+    const token = getToken();
+    if (!token || !params.id) return;
+    setPaymentLoading(true);
+    try {
+      const res = await apiFetch<PaymentHistory>(`/pos/client/${params.id}/payments`, { token });
+      setPaymentHistory(res);
+    } catch {
+      // Payment history is optional, fail silently
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchClient();
+    fetchPaymentHistory();
   }, [params.id]);
 
   const openAddAnimal = () => {
@@ -806,6 +846,74 @@ export default function ClientDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Payment History */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-indigo-600" />היסטוריית תשלומים
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {paymentLoading ? (
+            <p className="text-sm text-muted-foreground">טוען היסטוריית תשלומים...</p>
+          ) : !paymentHistory || paymentHistory.invoices.length === 0 ? (
+            <p className="text-sm text-muted-foreground">אין היסטוריית תשלומים</p>
+          ) : (
+            <>
+              {/* Summary */}
+              <div className="mb-4 grid grid-cols-3 gap-4">
+                <div className="rounded-lg bg-green-50 p-3 text-center">
+                  <div className="text-lg font-bold text-green-700" dir="ltr">₪{paymentHistory.totalPaid.toFixed(2)}</div>
+                  <div className="text-xs text-green-600">שולם</div>
+                </div>
+                <div className="rounded-lg bg-red-50 p-3 text-center">
+                  <div className="text-lg font-bold text-red-700" dir="ltr">₪{paymentHistory.totalUnpaid.toFixed(2)}</div>
+                  <div className="text-xs text-red-600">לא שולם</div>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-3 text-center">
+                  <div className="text-lg font-bold text-gray-700">{paymentHistory.invoiceCount}</div>
+                  <div className="text-xs text-gray-600">סה&quot;כ חשבוניות</div>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-right text-xs text-muted-foreground">
+                      <th className="pb-2 pr-2 font-medium">מס׳ חשבונית</th>
+                      <th className="pb-2 pr-2 font-medium">תאריך</th>
+                      <th className="pb-2 pr-2 font-medium">סטטוס</th>
+                      <th className="pb-2 pr-2 font-medium">פריטים</th>
+                      <th className="pb-2 pr-2 font-medium">סכום</th>
+                      <th className="pb-2 pr-2 font-medium">שולם</th>
+                      <th className="pb-2 pr-2 font-medium">אמצעי תשלום</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paymentHistory.invoices.map((inv) => (
+                      <tr key={inv.id} className="border-b last:border-0">
+                        <td className="py-2 pr-2" dir="ltr">{inv.invoiceNumber}</td>
+                        <td className="py-2 pr-2">{new Date(inv.date).toLocaleDateString('he-IL')}</td>
+                        <td className="py-2 pr-2">
+                          <span className={`rounded px-2 py-0.5 text-xs ${invoiceStatusColors[inv.status] || ''}`}>
+                            {invoiceStatusLabels[inv.status] || inv.status}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-2 max-w-[200px] truncate">{inv.itemsSummary}</td>
+                        <td className="py-2 pr-2" dir="ltr">₪{inv.total.toFixed(2)}</td>
+                        <td className="py-2 pr-2" dir="ltr">₪{inv.paidAmount.toFixed(2)}</td>
+                        <td className="py-2 pr-2">{inv.paymentMethod ? (paymentMethodLabels[inv.paymentMethod] || inv.paymentMethod) : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
       </div>{/* end PDF Content Area */}
     </div>
   );

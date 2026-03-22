@@ -22,6 +22,7 @@ import {
   CreditCard,
   ShieldCheck,
   ClipboardList,
+  Syringe,
   Menu,
   X,
 } from 'lucide-react';
@@ -38,6 +39,7 @@ const navItems = [
   { href: '/pos', labelKey: 'nav.pos', icon: Receipt },
   { href: '/quotes', labelKey: 'nav.quotes', icon: FileText },
   { href: '/finance', labelKey: 'nav.finance', icon: TrendingUp },
+  { href: '/vaccinations', labelKey: 'nav.vaccinations', icon: Syringe },
   { href: '/templates', labelKey: 'nav.templates', icon: ClipboardList },
   { href: '/settings', labelKey: 'nav.settings', icon: Settings },
   { href: '/subscription', labelKey: 'nav.subscription', icon: CreditCard },

@@ -20,6 +20,7 @@ const rolePermissions: Record<string, UserRole[]> = {
   '/settings': ['owner', 'admin'],
   '/subscription': ['owner', 'admin'],
   '/templates': ['owner', 'admin', 'veterinarian', 'technician', 'receptionist'],
+  '/vaccinations': ['owner', 'admin', 'veterinarian', 'technician', 'receptionist'],
   '/search': ['owner', 'admin', 'veterinarian', 'technician', 'receptionist'],
 };
 
