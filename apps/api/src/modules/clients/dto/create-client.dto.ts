@@ -1,4 +1,5 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, IsDateString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, IsDate } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateClientDto {
@@ -33,9 +34,10 @@ export class CreateClientDto {
   address?: string;
 
   @ApiPropertyOptional({ example: '1990-01-15' })
-  @IsDateString()
+  @Type(() => Date)
+  @IsDate()
   @IsOptional()
-  dateOfBirth?: string;
+  dateOfBirth?: Date;
 
   @ApiPropertyOptional()
   @IsString()

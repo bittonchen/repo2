@@ -1,7 +1,8 @@
 import {
-  IsBoolean, IsDateString, IsEnum, IsNotEmpty,
+  IsBoolean, IsDate, IsEnum, IsNotEmpty,
   IsNumber, IsOptional, IsString,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AnimalSpecies, AnimalGender } from '@prisma/client';
 
@@ -30,9 +31,10 @@ export class CreateAnimalDto {
   gender: AnimalGender;
 
   @ApiPropertyOptional()
-  @IsDateString()
+  @Type(() => Date)
+  @IsDate()
   @IsOptional()
-  dateOfBirth?: string;
+  dateOfBirth?: Date;
 
   @ApiPropertyOptional({ example: 12.5 })
   @IsNumber()

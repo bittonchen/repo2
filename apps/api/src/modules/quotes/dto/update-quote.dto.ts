@@ -4,8 +4,9 @@ import {
   IsNumber,
   IsOptional,
   IsEnum,
-  IsDateString,
+  IsDate,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { QuoteStatus } from '@prisma/client';
 
 export class UpdateQuoteDto {
@@ -21,9 +22,10 @@ export class UpdateQuoteDto {
   @IsOptional()
   notes?: string;
 
-  @IsDateString()
+  @Type(() => Date)
+  @IsDate()
   @IsOptional()
-  validUntil?: string;
+  validUntil?: Date;
 
   @IsNumber()
   @IsOptional()

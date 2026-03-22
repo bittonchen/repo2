@@ -1,4 +1,5 @@
-import { IsDateString, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsDate, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateAppointmentDto {
@@ -18,12 +19,14 @@ export class CreateAppointmentDto {
   veterinarianId: string;
 
   @ApiProperty()
-  @IsDateString()
-  startTime: string;
+  @Type(() => Date)
+  @IsDate()
+  startTime: Date;
 
   @ApiProperty()
-  @IsDateString()
-  endTime: string;
+  @Type(() => Date)
+  @IsDate()
+  endTime: Date;
 
   @ApiProperty({ example: 'ביקורת שגרתית' })
   @IsString()

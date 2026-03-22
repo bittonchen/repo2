@@ -4,8 +4,9 @@ import {
   IsArray,
   IsNumber,
   IsOptional,
-  IsDateString,
+  IsDate,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateQuoteDto {
   @IsString()
@@ -19,9 +20,10 @@ export class CreateQuoteDto {
   @IsOptional()
   notes?: string;
 
-  @IsDateString()
+  @Type(() => Date)
+  @IsDate()
   @IsOptional()
-  validUntil?: string;
+  validUntil?: Date;
 
   @IsNumber()
   @IsOptional()

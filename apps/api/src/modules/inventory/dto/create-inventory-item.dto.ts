@@ -1,7 +1,8 @@
 import {
-  IsDateString, IsEnum, IsNotEmpty, IsNumber,
+  IsDate, IsEnum, IsNotEmpty, IsNumber,
   IsOptional, IsString, Min,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { InventoryCategory } from '@prisma/client';
 
@@ -42,9 +43,10 @@ export class CreateInventoryItemDto {
   costPrice?: number;
 
   @ApiPropertyOptional()
-  @IsDateString()
+  @Type(() => Date)
+  @IsDate()
   @IsOptional()
-  expiryDate?: string;
+  expiryDate?: Date;
 
   @ApiPropertyOptional()
   @IsString()
