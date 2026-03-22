@@ -61,7 +61,24 @@ function getWeekStart(date: Date) {
   return d;
 }
 
-type ViewMode = 'day' | 'week';
+type ViewMode = 'day' | 'week' | 'month';
+
+function getMonthStart(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function getMonthDays(date: Date) {
+  const start = getMonthStart(date);
+  const firstDayOfWeek = start.getDay(); // 0=Sun
+  const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  const days: (Date | null)[] = [];
+  // Pad start
+  for (let i = 0; i < firstDayOfWeek; i++) days.push(null);
+  for (let i = 1; i <= daysInMonth; i++) days.push(new Date(date.getFullYear(), date.getMonth(), i));
+  // Pad end to fill last week
+  while (days.length % 7 !== 0) days.push(null);
+  return days;
+}
 
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -82,7 +99,23 @@ export default function AppointmentsPage() {
     try {
       const token = getToken();
       let res: Appointment[];
-      if (viewMode === 'week') {
+      if (viewMode === 'month') {
+        const monthStart = getMonthStart(new Date(selectedDate));
+        const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+        // Fetch full month by fetching each week that overlaps (reuse week endpoint)
+        const weeks: Appointment[][] = [];
+        let current = getWeekStart(monthStart);
+        while (current <= monthEnd) {
+          const weekData = await apiFetch<Appointment[]>(`/appointments/week?startDate=${formatDate(current)}`, { token: token || undefined });
+          weeks.push(weekData);
+          current = new Date(current);
+          current.setDate(current.getDate() + 7);
+        }
+        // Deduplicate by id
+        const map = new Map<string, Appointment>();
+        weeks.flat().forEach((a) => map.set(a.id, a));
+        res = Array.from(map.values());
+      } else if (viewMode === 'week') {
         const weekStart = getWeekStart(new Date(selectedDate));
         res = await apiFetch<Appointment[]>(`/appointments/week?startDate=${formatDate(weekStart)}`, { token: token || undefined });
       } else {
@@ -112,7 +145,11 @@ export default function AppointmentsPage() {
 
   const changeDate = (days: number) => {
     const d = new Date(selectedDate);
-    d.setDate(d.getDate() + days);
+    if (viewMode === 'month') {
+      d.setMonth(d.getMonth() + (days > 0 ? 1 : -1));
+    } else {
+      d.setDate(d.getDate() + days);
+    }
     setSelectedDate(formatDate(d));
   };
 
@@ -235,6 +272,12 @@ export default function AppointmentsPage() {
             >
               <CalendarDays className="inline h-4 w-4 ml-1" />שבוע
             </button>
+            <button
+              onClick={() => setViewMode('month')}
+              className={`px-3 py-1.5 text-sm ${viewMode === 'month' ? 'bg-blue-50 text-blue-600' : 'text-gray-600'}`}
+            >
+              <CalendarDays className="inline h-4 w-4 ml-1" />חודש
+            </button>
           </div>
           <Button onClick={openCreate}><Plus className="ml-2 h-4 w-4" />תור חדש</Button>
         </div>
@@ -284,7 +327,7 @@ export default function AppointmentsPage() {
       {/* Date Navigation */}
       <Card className="mb-6">
         <CardHeader className="flex flex-row items-center justify-between py-3">
-          <Button variant="ghost" size="icon" onClick={() => changeDate(viewMode === 'week' ? -7 : -1)}>
+          <Button variant="ghost" size="icon" onClick={() => changeDate(viewMode === 'month' ? -1 : viewMode === 'week' ? -7 : -1)}>
             <ChevronRight className="h-5 w-5" />
           </Button>
           <div className="text-center">
@@ -293,7 +336,7 @@ export default function AppointmentsPage() {
               היום
             </button>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => changeDate(viewMode === 'week' ? 7 : 1)}>
+          <Button variant="ghost" size="icon" onClick={() => changeDate(viewMode === 'month' ? 1 : viewMode === 'week' ? 7 : 1)}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
         </CardHeader>
@@ -321,7 +364,7 @@ export default function AppointmentsPage() {
             <div className="py-8 text-center text-muted-foreground">אין תורים ביום זה</div>
           )}
         </div>
-      ) : (
+      ) : viewMode === 'week' ? (
         /* Week View */
         <div className="overflow-x-auto">
           <div className="grid min-w-[800px] grid-cols-7 gap-2">
@@ -350,6 +393,42 @@ export default function AppointmentsPage() {
                     ))}
                     {dayAppts.length === 0 && (
                       <div className="py-2 text-center text-xs text-muted-foreground">-</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        /* Month View */
+        <div>
+          <div className="mb-2 grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground">
+            {dayNames.map((name) => <div key={name} className="py-1 font-medium">{name}</div>)}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {getMonthDays(new Date(selectedDate)).map((day, i) => {
+              if (!day) return <div key={i} className="min-h-[80px] rounded bg-gray-50" />;
+              const dateStr = formatDate(day);
+              const isToday = dateStr === formatDate(new Date());
+              const dayAppts = appointments.filter(
+                (a) => formatDate(new Date(a.startTime)) === dateStr,
+              );
+              return (
+                <div
+                  key={i}
+                  className={`min-h-[80px] rounded border p-1 text-xs cursor-pointer hover:bg-gray-50 ${isToday ? 'border-blue-400 bg-blue-50/50' : ''}`}
+                  onClick={() => { setSelectedDate(dateStr); setViewMode('day'); }}
+                >
+                  <div className={`mb-1 text-left font-medium ${isToday ? 'text-blue-600' : ''}`}>{day.getDate()}</div>
+                  <div className="space-y-0.5">
+                    {dayAppts.slice(0, 3).map((appt) => (
+                      <div key={appt.id} className={`truncate rounded px-1 py-0.5 ${statusColors[appt.status] || 'bg-gray-100'}`}>
+                        {formatTime(appt.startTime)} {appt.animal?.name}
+                      </div>
+                    ))}
+                    {dayAppts.length > 3 && (
+                      <div className="text-muted-foreground text-center">+{dayAppts.length - 3} עוד</div>
                     )}
                   </div>
                 </div>

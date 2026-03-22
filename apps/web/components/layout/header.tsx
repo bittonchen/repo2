@@ -8,8 +8,8 @@ export function Header() {
   const user = getUser();
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-white px-6">
-      <div />
+    <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-white px-4 md:px-6">
+      <div className="w-10 md:w-0" /> {/* spacer for mobile hamburger */}
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 text-sm">
           <User className="h-4 w-4 text-gray-500" />

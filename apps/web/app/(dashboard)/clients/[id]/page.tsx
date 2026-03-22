@@ -129,6 +129,16 @@ export default function ClientDetailPage() {
   });
   const [animalFormError, setAnimalFormError] = useState('');
   const [animalSaving, setAnimalSaving] = useState(false);
+
+  const [showEditAnimal, setShowEditAnimal] = useState(false);
+  const [editAnimalId, setEditAnimalId] = useState<string | null>(null);
+  const [editAnimalForm, setEditAnimalForm] = useState({
+    name: '', species: 'dog', breed: '', gender: 'unknown',
+    dateOfBirth: '', weight: '', microchipNumber: '', isNeutered: false, notes: '',
+  });
+  const [editAnimalFormError, setEditAnimalFormError] = useState('');
+  const [editAnimalSaving, setEditAnimalSaving] = useState(false);
+
   const [exporting, setExporting] = useState(false);
   const [exportingAnimal, setExportingAnimal] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -290,6 +300,44 @@ export default function ClientDetailPage() {
     setShowAddAnimal(true);
   };
 
+  const openEditAnimal = (animal: Animal) => {
+    setEditAnimalId(animal.id);
+    setEditAnimalForm({
+      name: animal.name,
+      species: animal.species,
+      breed: animal.breed || '',
+      gender: animal.gender,
+      dateOfBirth: animal.dateOfBirth ? animal.dateOfBirth.split('T')[0] : '',
+      weight: animal.weight ? String(animal.weight) : '',
+      microchipNumber: animal.microchipNumber || '',
+      isNeutered: animal.isNeutered,
+      notes: animal.notes || '',
+    });
+    setEditAnimalFormError('');
+    setShowEditAnimal(true);
+  };
+
+  const handleEditAnimal = async () => {
+    if (!editAnimalForm.name) { setEditAnimalFormError('שם החיה הוא שדה חובה'); return; }
+    setEditAnimalSaving(true); setEditAnimalFormError('');
+    try {
+      const token = getToken();
+      const body: any = {
+        name: editAnimalForm.name, species: editAnimalForm.species,
+        gender: editAnimalForm.gender, isNeutered: editAnimalForm.isNeutered,
+      };
+      if (editAnimalForm.breed) body.breed = editAnimalForm.breed;
+      if (editAnimalForm.dateOfBirth) body.dateOfBirth = editAnimalForm.dateOfBirth;
+      if (editAnimalForm.weight) body.weight = parseFloat(editAnimalForm.weight);
+      if (editAnimalForm.microchipNumber) body.microchipNumber = editAnimalForm.microchipNumber;
+      if (editAnimalForm.notes) body.notes = editAnimalForm.notes;
+      await apiFetch(`/animals/${editAnimalId}`, { method: 'PATCH', token: token || undefined, body: JSON.stringify(body) });
+      setShowEditAnimal(false);
+      fetchClient();
+    } catch (err: any) { setEditAnimalFormError(err.message || 'שגיאה בשמירה'); }
+    finally { setEditAnimalSaving(false); }
+  };
+
   const handleAddAnimal = async () => {
     if (!animalForm.name) { setAnimalFormError('שם החיה הוא שדה חובה'); return; }
     setAnimalSaving(true); setAnimalFormError('');
@@ -314,26 +362,28 @@ export default function ClientDetailPage() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => router.push('/clients')}>
             <ArrowRight className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">{client.firstName} {client.lastName}</h1>
+            <h1 className="text-xl font-bold sm:text-2xl">{client.firstName} {client.lastName}</h1>
             <p className="text-sm text-muted-foreground">
               לקוח מאז {new Date(client.createdAt).toLocaleDateString('he-IL')}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={openEditClient}>
+          <Button variant="outline" size="sm" onClick={openEditClient}>
             <Pencil className="ml-2 h-4 w-4" />
-            עריכת לקוח
+            <span className="hidden sm:inline">עריכת לקוח</span>
+            <span className="sm:hidden">עריכה</span>
           </Button>
-          <Button variant="outline" onClick={handleExportPDF} disabled={exporting}>
+          <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={exporting}>
             <Download className="ml-2 h-4 w-4" />
-            {exporting ? 'מייצא...' : 'ייצוא PDF'}
+            <span className="hidden sm:inline">{exporting ? 'מייצא...' : 'ייצוא PDF'}</span>
+            <span className="sm:hidden">PDF</span>
           </Button>
         </div>
       </div>
@@ -397,7 +447,7 @@ export default function ClientDetailPage() {
       {/* PDF Content Area */}
       <div ref={contentRef}>
       {/* Client Info + Stats */}
-      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card className="lg:col-span-1">
           <CardHeader><CardTitle className="flex items-center gap-2"><User className="h-5 w-5" />פרטי לקוח</CardTitle></CardHeader>
           <CardContent className="space-y-3">
@@ -500,6 +550,44 @@ export default function ClientDetailPage() {
         </div>
       )}
 
+      {/* Edit Animal Modal */}
+      {showEditAnimal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-xl font-bold">עריכת חיה</h2>
+            {editAnimalFormError && <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-600">{editAnimalFormError}</div>}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2"><Label>שם החיה *</Label><Input value={editAnimalForm.name} onChange={(e) => setEditAnimalForm({ ...editAnimalForm, name: e.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>סוג</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editAnimalForm.species} onChange={(e) => setEditAnimalForm({ ...editAnimalForm, species: e.target.value })}>
+                  {Object.entries(speciesLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2"><Label>גזע</Label><Input value={editAnimalForm.breed} onChange={(e) => setEditAnimalForm({ ...editAnimalForm, breed: e.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>מין</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editAnimalForm.gender} onChange={(e) => setEditAnimalForm({ ...editAnimalForm, gender: e.target.value })}>
+                  {Object.entries(genderLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2"><Label>תאריך לידה</Label><Input type="date" value={editAnimalForm.dateOfBirth} onChange={(e) => setEditAnimalForm({ ...editAnimalForm, dateOfBirth: e.target.value })} dir="ltr" /></div>
+              <div className="space-y-2"><Label>משקל (ק&quot;ג)</Label><Input type="number" step="0.1" value={editAnimalForm.weight} onChange={(e) => setEditAnimalForm({ ...editAnimalForm, weight: e.target.value })} dir="ltr" /></div>
+              <div className="space-y-2"><Label>מספר שבב</Label><Input value={editAnimalForm.microchipNumber} onChange={(e) => setEditAnimalForm({ ...editAnimalForm, microchipNumber: e.target.value })} dir="ltr" /></div>
+              <div className="flex items-center gap-2 pt-6">
+                <input type="checkbox" id="editIsNeutered" checked={editAnimalForm.isNeutered} onChange={(e) => setEditAnimalForm({ ...editAnimalForm, isNeutered: e.target.checked })} className="h-4 w-4 rounded border-gray-300" />
+                <Label htmlFor="editIsNeutered">מסורס/מעוקרת</Label>
+              </div>
+              <div className="col-span-2 space-y-2"><Label>הערות</Label><textarea className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editAnimalForm.notes} onChange={(e) => setEditAnimalForm({ ...editAnimalForm, notes: e.target.value })} /></div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowEditAnimal(false)}>ביטול</Button>
+              <Button onClick={handleEditAnimal} disabled={editAnimalSaving}>{editAnimalSaving ? 'שומר...' : 'שמירה'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Animals */}
       <div className="mb-6">
         <div className="mb-3 flex items-center justify-between">
@@ -547,7 +635,15 @@ export default function ClientDetailPage() {
 
                 {expandedAnimal === animal.id && (
                   <div className="border-t bg-gray-50 p-4" ref={(el) => { animalRefs.current[animal.id] = el; }}>
-                    <div className="mb-3 flex justify-end">
+                    <div className="mb-3 flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); openEditAnimal(animal); }}
+                      >
+                        <Pencil className="ml-1 h-3.5 w-3.5" />
+                        עריכה
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
