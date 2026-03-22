@@ -5,8 +5,10 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
-  ArrowRight, PawPrint, Calendar, User, FileText, Download,
+  ArrowRight, PawPrint, Calendar, User, FileText, Download, Pencil,
   Stethoscope, Pill, Clock, Bell, Syringe, Weight, Thermometer, Camera,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
@@ -114,21 +116,68 @@ export default function AnimalDetailPage() {
   const [exporting, setExporting] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
+  const [showEdit, setShowEdit] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '', species: 'dog', breed: '', gender: 'unknown',
+    dateOfBirth: '', weight: '', microchipNumber: '', isNeutered: false, notes: '',
+  });
+  const [editError, setEditError] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+
+  const fetchAnimal = async () => {
+    const token = getToken();
+    if (!token || !params.id) return;
+    try {
+      const res = await apiFetch<AnimalDetail>(`/animals/${params.id}`, { token });
+      setAnimal(res);
+    } catch {
+      router.push('/animals');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchAnimal = async () => {
-      const token = getToken();
-      if (!token || !params.id) return;
-      try {
-        const res = await apiFetch<AnimalDetail>(`/animals/${params.id}`, { token });
-        setAnimal(res);
-      } catch {
-        router.push('/animals');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchAnimal();
   }, [params.id]);
+
+  const openEdit = () => {
+    if (!animal) return;
+    setEditForm({
+      name: animal.name,
+      species: animal.species,
+      breed: animal.breed || '',
+      gender: animal.gender,
+      dateOfBirth: animal.dateOfBirth ? animal.dateOfBirth.split('T')[0] : '',
+      weight: animal.weight ? String(animal.weight) : '',
+      microchipNumber: animal.microchipNumber || '',
+      isNeutered: animal.isNeutered,
+      notes: animal.notes || '',
+    });
+    setEditError('');
+    setShowEdit(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editForm.name) { setEditError('שם החיה הוא שדה חובה'); return; }
+    setEditSaving(true); setEditError('');
+    try {
+      const token = getToken();
+      const body: any = {
+        name: editForm.name, species: editForm.species,
+        gender: editForm.gender, isNeutered: editForm.isNeutered,
+      };
+      if (editForm.breed) body.breed = editForm.breed;
+      if (editForm.dateOfBirth) body.dateOfBirth = editForm.dateOfBirth;
+      if (editForm.weight) body.weight = parseFloat(editForm.weight);
+      if (editForm.microchipNumber) body.microchipNumber = editForm.microchipNumber;
+      if (editForm.notes) body.notes = editForm.notes;
+      await apiFetch(`/animals/${params.id}`, { method: 'PATCH', token: token || undefined, body: JSON.stringify(body) });
+      setShowEdit(false);
+      fetchAnimal();
+    } catch (err: any) { setEditError(err.message || 'שגיאה בשמירה'); }
+    finally { setEditSaving(false); }
+  };
 
   const handleExportPDF = async () => {
     if (!animal || !contentRef.current) return;
@@ -243,11 +292,55 @@ export default function AnimalDetailPage() {
             </div>
           </div>
         </div>
-        <Button variant="outline" onClick={handleExportPDF} disabled={exporting}>
-          <Download className="ml-2 h-4 w-4" />
-          {exporting ? 'מייצא...' : 'ייצוא PDF'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={openEdit}>
+            <Pencil className="ml-2 h-4 w-4" />
+            עריכה
+          </Button>
+          <Button variant="outline" onClick={handleExportPDF} disabled={exporting}>
+            <Download className="ml-2 h-4 w-4" />
+            {exporting ? 'מייצא...' : 'ייצוא PDF'}
+          </Button>
+        </div>
       </div>
+
+      {/* Edit Animal Modal */}
+      {showEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-xl font-bold">עריכת {animal.name}</h2>
+            {editError && <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-600">{editError}</div>}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2"><Label>שם החיה *</Label><Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>סוג</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editForm.species} onChange={(e) => setEditForm({ ...editForm, species: e.target.value })}>
+                  {Object.entries(speciesLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2"><Label>גזע</Label><Input value={editForm.breed} onChange={(e) => setEditForm({ ...editForm, breed: e.target.value })} /></div>
+              <div className="space-y-2">
+                <Label>מין</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editForm.gender} onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}>
+                  {Object.entries(genderLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2"><Label>תאריך לידה</Label><Input type="date" value={editForm.dateOfBirth} onChange={(e) => setEditForm({ ...editForm, dateOfBirth: e.target.value })} dir="ltr" /></div>
+              <div className="space-y-2"><Label>משקל (ק&quot;ג)</Label><Input type="number" step="0.1" value={editForm.weight} onChange={(e) => setEditForm({ ...editForm, weight: e.target.value })} dir="ltr" /></div>
+              <div className="space-y-2"><Label>מספר שבב</Label><Input value={editForm.microchipNumber} onChange={(e) => setEditForm({ ...editForm, microchipNumber: e.target.value })} dir="ltr" /></div>
+              <div className="flex items-center gap-2 pt-6">
+                <input type="checkbox" id="editIsNeutered" checked={editForm.isNeutered} onChange={(e) => setEditForm({ ...editForm, isNeutered: e.target.checked })} className="h-4 w-4 rounded border-gray-300" />
+                <Label htmlFor="editIsNeutered">מסורס/מעוקרת</Label>
+              </div>
+              <div className="col-span-2 space-y-2"><Label>הערות</Label><textarea className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} /></div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowEdit(false)}>ביטול</Button>
+              <Button onClick={handleSaveEdit} disabled={editSaving}>{editSaving ? 'שומר...' : 'שמירה'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PDF Content */}
       <div ref={contentRef}>
