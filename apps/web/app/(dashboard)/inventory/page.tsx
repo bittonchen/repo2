@@ -107,7 +107,7 @@ export default function InventoryPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">מלאי</h1>
           {lowStockCount > 0 && (
@@ -150,7 +150,7 @@ export default function InventoryPage() {
       )}
 
       {/* Filters */}
-      <div className="mb-4 flex gap-3">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input placeholder="חיפוש לפי שם או מק&quot;ט..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-10" />
@@ -167,7 +167,7 @@ export default function InventoryPage() {
           : filtered.length === 0 ? <div className="py-8 text-center text-muted-foreground">{search ? 'לא נמצאו תוצאות' : 'אין פריטים במלאי'}</div>
           : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[600px] text-sm">
                 <thead><tr className="border-b text-right">
                   <th className="pb-3 font-medium text-muted-foreground">שם</th>
                   <th className="pb-3 font-medium text-muted-foreground">קטגוריה</th>

@@ -1,0 +1,20 @@
+# =============================================================================
+# VetFlow — Example Terraform Variables
+# =============================================================================
+# Copy this file to terraform.tfvars and fill in your values.
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# NEVER commit terraform.tfvars — it contains secrets.
+# =============================================================================
+
+region      = "eu-west-1"
+environment = "staging"
+
+# Minimum 12 characters
+db_password = "CHANGE_ME_use_a_strong_password"
+
+# Minimum 32 characters
+jwt_secret = "CHANGE_ME_use_a_long_random_string_here"
+
+# Leave empty to skip custom domain setup
+domain_name = ""

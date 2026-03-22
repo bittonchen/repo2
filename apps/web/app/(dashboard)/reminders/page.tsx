@@ -166,7 +166,7 @@ export default function RemindersPage() {
       </div>
 
       {/* Stats */}
-      <div className="mb-6 grid grid-cols-3 gap-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
           <CardContent className="flex items-center gap-3 pt-6">
             <Clock className="h-8 w-8 text-yellow-500" />
@@ -276,7 +276,7 @@ export default function RemindersPage() {
       )}
 
       {/* Filters */}
-      <div className="mb-4 flex gap-3">
+      <div className="mb-4 flex flex-wrap gap-3">
         <select className="rounded-md border border-input bg-background px-3 py-2 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="">כל הסטטוסים</option>
           {Object.entries(statusLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}

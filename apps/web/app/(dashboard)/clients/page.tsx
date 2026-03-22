@@ -273,7 +273,7 @@ export default function ClientsPage() {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[600px] text-sm">
                   <thead>
                     <tr className="border-b text-right">
                       <th className="pb-3 font-medium text-muted-foreground">שם</th>

@@ -345,7 +345,7 @@ export default function PosPage() {
           : invoices.length === 0 ? <div className="py-8 text-center text-muted-foreground">אין חשבוניות</div>
           : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[600px] text-sm">
                 <thead><tr className="border-b text-right">
                   <th className="pb-3 font-medium text-muted-foreground">מספר</th>
                   <th className="pb-3 font-medium text-muted-foreground">לקוח</th>
