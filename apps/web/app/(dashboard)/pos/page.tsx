@@ -165,6 +165,26 @@ export default function PosPage() {
     if (!showPayment) return;
     try {
       const token = getToken();
+
+      if (paymentMethod === 'credit_card') {
+        // Try to get payment page URL from payment provider
+        try {
+          const { url } = await apiFetch<{ url: string }>(
+            `/payment/page/${showPayment.id}`,
+            { token: token || undefined },
+          );
+          if (url) {
+            window.open(url, '_blank', 'width=600,height=700');
+            setShowPayment(null);
+            // Poll for payment completion
+            setTimeout(() => fetchInvoices(), 5000);
+            return;
+          }
+        } catch {
+          // Fallback to manual mark as paid if payment gateway not configured
+        }
+      }
+
       await apiFetch(`/pos/invoices/${showPayment.id}/pay`, {
         method: 'POST', token: token || undefined,
         body: JSON.stringify({ paymentMethod }),

@@ -84,4 +84,58 @@ export class AppointmentsService {
     await this.findById(tenantId, id);
     return this.prisma.appointment.update({ where: { id }, data: { status } });
   }
+
+  async findByWeek(tenantId: string, startDate: string, veterinarianId?: string) {
+    const start = new Date(startDate);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+
+    const where: any = {
+      tenantId,
+      startTime: { gte: start, lt: end },
+    };
+    if (veterinarianId) where.veterinarianId = veterinarianId;
+
+    return this.prisma.appointment.findMany({
+      where,
+      include: {
+        client: true,
+        animal: true,
+        veterinarian: { select: { id: true, name: true } },
+      },
+      orderBy: { startTime: 'asc' },
+    });
+  }
+
+  async generateICalEvent(tenantId: string, id: string): Promise<string> {
+    const appointment = await this.findById(tenantId, id);
+    const start = new Date(appointment.startTime);
+    const end = new Date(appointment.endTime);
+
+    const formatICalDate = (d: Date) =>
+      d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+
+    const clientName = appointment.client
+      ? `${appointment.client.firstName} ${appointment.client.lastName}`
+      : '';
+    const animalName = appointment.animal?.name || '';
+    const vetName = appointment.veterinarian?.name || '';
+
+    return [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//VetFlow//Appointments//HE',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      `DTSTART:${formatICalDate(start)}`,
+      `DTEND:${formatICalDate(end)}`,
+      `SUMMARY:${appointment.type} - ${animalName}`,
+      `DESCRIPTION:לקוח: ${clientName}\\nחיה: ${animalName}\\nוטרינר: ${vetName}${appointment.notes ? `\\nהערות: ${appointment.notes}` : ''}`,
+      `UID:${appointment.id}@vetflow`,
+      `DTSTAMP:${formatICalDate(new Date())}`,
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+  }
 }
