@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,8 @@ import { DollarSign, TrendingUp, TrendingDown, FileText, Download } from 'lucide
 import { apiFetch } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import * as XLSX from 'xlsx';
+import html2canvas from 'html2canvas-pro';
+import { jsPDF } from 'jspdf';
 
 interface Summary {
   totalRevenue: number;
@@ -74,6 +76,7 @@ export default function FinancePage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [loading, setLoading] = useState(true);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -136,6 +139,80 @@ export default function FinancePage() {
     } catch { /* */ }
   };
 
+  const exportToPdf = async () => {
+    const element = contentRef.current;
+    if (!element) return;
+
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const contentWidth = pageWidth - margin * 2;
+
+      // Title
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(18);
+      pdf.text('VetFlow - דוח פיננסי', pageWidth - margin, 20, { align: 'right' });
+
+      // Date
+      const today = new Date().toISOString().split('T')[0];
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(today, pageWidth - margin, 28, { align: 'right' });
+
+      // Content image
+      const imgWidth = contentWidth;
+      const imgHeight = (canvas.height / canvas.width) * imgWidth;
+      const startY = 35;
+
+      if (imgHeight <= pageHeight - startY - margin) {
+        pdf.addImage(imgData, 'PNG', margin, startY, imgWidth, imgHeight);
+      } else {
+        // Multi-page: slice the canvas across pages
+        const availableHeight = pageHeight - startY - margin;
+        const firstPageAvailable = availableHeight;
+        const subsequentAvailable = pageHeight - margin * 2;
+        const pixelsPerMm = canvas.width / imgWidth;
+
+        let srcY = 0;
+        let isFirstPage = true;
+
+        while (srcY < canvas.height) {
+          const sliceHeightMm = isFirstPage ? firstPageAvailable : subsequentAvailable;
+          const sliceHeightPx = Math.min(sliceHeightMm * pixelsPerMm, canvas.height - srcY);
+
+          const sliceCanvas = document.createElement('canvas');
+          sliceCanvas.width = canvas.width;
+          sliceCanvas.height = sliceHeightPx;
+          const ctx = sliceCanvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(canvas, 0, srcY, canvas.width, sliceHeightPx, 0, 0, canvas.width, sliceHeightPx);
+            const sliceImg = sliceCanvas.toDataURL('image/png');
+            const sliceRenderHeight = (sliceHeightPx / canvas.width) * imgWidth;
+            const yPos = isFirstPage ? startY : margin;
+            pdf.addImage(sliceImg, 'PNG', margin, yPos, imgWidth, sliceRenderHeight);
+          }
+
+          srcY += sliceHeightPx;
+          if (srcY < canvas.height) {
+            pdf.addPage();
+          }
+          isFirstPage = false;
+        }
+      }
+
+      pdf.save(`vetflow-finance-report-${today}.pdf`);
+    } catch { /* */ }
+  };
+
   const tabs: { key: TabType; label: string }[] = [
     { key: 'overview', label: 'סקירה' },
     { key: 'pnl', label: 'רווח והפסד' },
@@ -147,6 +224,9 @@ export default function FinancePage() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">פיננסי</h1>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={exportToPdf}>
+            <FileText className="ml-2 h-4 w-4" />ייצוא PDF
+          </Button>
           <Button variant="outline" size="sm" onClick={exportToExcel}>
             <Download className="ml-2 h-4 w-4" />ייצוא Excel
           </Button>
@@ -192,6 +272,7 @@ export default function FinancePage() {
         ))}
       </div>
 
+      <div ref={contentRef}>
       {loading ? (
         <div className="py-8 text-center text-muted-foreground">טוען...</div>
       ) : (
@@ -388,6 +469,7 @@ export default function FinancePage() {
           )}
         </>
       )}
+      </div>
     </div>
   );
 }

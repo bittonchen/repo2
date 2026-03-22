@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, DragEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -93,6 +93,10 @@ export default function AppointmentsPage() {
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Drag and drop state
+  const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+  const [dragOverHour, setDragOverHour] = useState<number | null>(null);
 
   const fetchAppointments = useCallback(async () => {
     setLoading(true);
@@ -200,11 +204,148 @@ export default function AppointmentsPage() {
     } catch { /* */ }
   };
 
-  const downloadIcal = (id: string) => {
-    const token = getToken();
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-    window.open(`${API_URL}/appointments/${id}/ical?token=${token}`, '_blank');
+  const downloadIcal = async (id: string) => {
+    try {
+      const token = getToken();
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      const res = await fetch(`${API_URL}/appointments/${id}/ical`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to download');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `appointment-${id}.ics`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch { /* */ }
   };
+
+  const openGoogleCalendar = (appt: Appointment) => {
+    const start = new Date(appt.startTime).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    const end = new Date(appt.endTime).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    const title = encodeURIComponent(`${appt.type} - ${appt.animal?.name || ''}`);
+    const details = encodeURIComponent(
+      `לקוח: ${appt.client?.firstName || ''} ${appt.client?.lastName || ''}\nחיה: ${appt.animal?.name || ''}${appt.veterinarian ? `\nוטרינר: ${appt.veterinarian.name}` : ''}${appt.notes ? `\nהערות: ${appt.notes}` : ''}`
+    );
+    window.open(
+      `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&details=${details}`,
+      '_blank'
+    );
+  };
+
+  // ─── Drag & Drop handlers ────────────────────────────────────────────
+
+  const handleDragStart = (e: DragEvent<HTMLDivElement>, appt: Appointment) => {
+    const dragData = {
+      appointmentId: appt.id,
+      originalStartTime: appt.startTime,
+      originalEndTime: appt.endTime,
+    };
+    e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOverDay = (e: DragEvent<HTMLDivElement>, dateStr: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverDay(dateStr);
+  };
+
+  const handleDragOverHour = (e: DragEvent<HTMLDivElement>, hour: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverHour(hour);
+  };
+
+  const handleDragLeaveDay = () => {
+    setDragOverDay(null);
+  };
+
+  const handleDragLeaveHour = () => {
+    setDragOverHour(null);
+  };
+
+  const handleDropOnDay = async (e: DragEvent<HTMLDivElement>, targetDateStr: string) => {
+    e.preventDefault();
+    setDragOverDay(null);
+
+    const raw = e.dataTransfer.getData('application/json');
+    if (!raw) return;
+
+    const dragData = JSON.parse(raw);
+    const originalStart = new Date(dragData.originalStartTime);
+    const originalEnd = new Date(dragData.originalEndTime);
+    const targetDate = new Date(targetDateStr);
+
+    // Keep the same time of day, change the date
+    const newStart = new Date(targetDate);
+    newStart.setHours(originalStart.getHours(), originalStart.getMinutes(), originalStart.getSeconds(), originalStart.getMilliseconds());
+
+    const newEnd = new Date(targetDate);
+    newEnd.setHours(originalEnd.getHours(), originalEnd.getMinutes(), originalEnd.getSeconds(), originalEnd.getMilliseconds());
+
+    // If the end time spans midnight, preserve the day offset
+    const dayDiff = Math.floor((originalEnd.getTime() - originalStart.getTime()) / (1000 * 60 * 60 * 24));
+    if (dayDiff > 0) {
+      newEnd.setDate(newEnd.getDate() + dayDiff);
+    }
+
+    // Skip if dropped on the same day
+    if (formatDate(newStart) === formatDate(originalStart)) return;
+
+    try {
+      const token = getToken();
+      await apiFetch(`/appointments/${dragData.appointmentId}`, {
+        method: 'PATCH',
+        token: token || undefined,
+        body: JSON.stringify({
+          startTime: newStart.toISOString(),
+          endTime: newEnd.toISOString(),
+        }),
+      });
+      fetchAppointments();
+    } catch { /* */ }
+  };
+
+  const handleDropOnHour = async (e: DragEvent<HTMLDivElement>, targetHour: number) => {
+    e.preventDefault();
+    setDragOverHour(null);
+
+    const raw = e.dataTransfer.getData('application/json');
+    if (!raw) return;
+
+    const dragData = JSON.parse(raw);
+    const originalStart = new Date(dragData.originalStartTime);
+    const originalEnd = new Date(dragData.originalEndTime);
+
+    // Skip if dropped on the same hour
+    if (originalStart.getHours() === targetHour) return;
+
+    // Calculate duration in ms and build new times
+    const durationMs = originalEnd.getTime() - originalStart.getTime();
+    const newStart = new Date(originalStart);
+    newStart.setHours(targetHour, 0, 0, 0);
+    const newEnd = new Date(newStart.getTime() + durationMs);
+
+    try {
+      const token = getToken();
+      await apiFetch(`/appointments/${dragData.appointmentId}`, {
+        method: 'PATCH',
+        token: token || undefined,
+        body: JSON.stringify({
+          startTime: newStart.toISOString(),
+          endTime: newEnd.toISOString(),
+        }),
+      });
+      fetchAppointments();
+    } catch { /* */ }
+  };
+
+  // ─── End Drag & Drop handlers ────────────────────────────────────────
 
   const dateDisplay = new Date(selectedDate).toLocaleDateString('he-IL', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -239,8 +380,11 @@ export default function AppointmentsPage() {
         {appt.status !== 'completed' && appt.status !== 'cancelled' && (
           <button onClick={() => updateStatus(appt.id, 'cancelled')} className="rounded bg-gray-400 px-2 py-0.5 text-xs text-white">בטל</button>
         )}
-        <button onClick={() => downloadIcal(appt.id)} className="rounded bg-white/80 px-2 py-0.5 text-xs text-gray-700 border" title="הוסף ליומן">
-          <Download className="inline h-3 w-3" />
+        <button onClick={() => downloadIcal(appt.id)} className="rounded bg-white/80 px-2 py-0.5 text-xs text-gray-700 border" title="הורד קובץ iCal">
+          <Download className="inline h-3 w-3" /> iCal
+        </button>
+        <button onClick={() => openGoogleCalendar(appt)} className="rounded bg-white/80 px-2 py-0.5 text-xs text-gray-700 border" title="הוסף ל-Google Calendar">
+          <CalendarIcon className="inline h-3 w-3" /> Google
         </button>
       </div>
     </div>
@@ -345,17 +489,61 @@ export default function AppointmentsPage() {
       {loading ? (
         <div className="py-8 text-center text-muted-foreground">טוען...</div>
       ) : viewMode === 'day' ? (
-        /* Day View */
+        /* Day View with drag & drop on hour rows */
         <div className="space-y-1">
           {hours.map((hour) => {
             const hourAppts = appointments.filter((a) => new Date(a.startTime).getHours() === hour);
+            const isDropTarget = dragOverHour === hour;
             return (
-              <div key={hour} className="flex min-h-[60px] gap-4 border-b py-2">
+              <div
+                key={hour}
+                className={`flex min-h-[60px] gap-4 border-b py-2 transition-colors ${isDropTarget ? 'bg-blue-100 border-blue-400' : ''}`}
+                onDragOver={(e) => handleDragOverHour(e, hour)}
+                onDragLeave={handleDragLeaveHour}
+                onDrop={(e) => handleDropOnHour(e, hour)}
+              >
                 <div className="w-16 pt-1 text-sm text-muted-foreground" dir="ltr">
                   {String(hour).padStart(2, '0')}:00
                 </div>
                 <div className="flex flex-1 flex-wrap gap-2">
-                  {hourAppts.map(renderAppointmentCard)}
+                  {hourAppts.map((appt) => (
+                    <div
+                      key={appt.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, appt)}
+                      className={`cursor-grab active:cursor-grabbing rounded-lg border px-3 py-2 text-sm ${statusColors[appt.status] || 'bg-gray-50'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-3.5 w-3.5" />
+                        <span dir="ltr">{formatTime(appt.startTime)} - {formatTime(appt.endTime)}</span>
+                      </div>
+                      <div className="mt-1 font-medium">
+                        {appt.animal?.name} — {appt.client?.firstName} {appt.client?.lastName}
+                      </div>
+                      <div className="text-xs">{appt.type}</div>
+                      {appt.veterinarian && <div className="text-xs text-muted-foreground">{appt.veterinarian.name}</div>}
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {appt.status === 'pending' && (
+                          <button onClick={() => updateStatus(appt.id, 'confirmed')} className="rounded bg-blue-500 px-2 py-0.5 text-xs text-white">אשר</button>
+                        )}
+                        {(appt.status === 'confirmed' || appt.status === 'pending') && (
+                          <button onClick={() => updateStatus(appt.id, 'in_progress')} className="rounded bg-purple-500 px-2 py-0.5 text-xs text-white">התחל טיפול</button>
+                        )}
+                        {appt.status === 'in_progress' && (
+                          <button onClick={() => updateStatus(appt.id, 'completed')} className="rounded bg-green-500 px-2 py-0.5 text-xs text-white">סיים</button>
+                        )}
+                        {appt.status !== 'completed' && appt.status !== 'cancelled' && (
+                          <button onClick={() => updateStatus(appt.id, 'cancelled')} className="rounded bg-gray-400 px-2 py-0.5 text-xs text-white">בטל</button>
+                        )}
+                        <button onClick={() => downloadIcal(appt.id)} className="rounded bg-white/80 px-2 py-0.5 text-xs text-gray-700 border" title="הורד קובץ iCal">
+                          <Download className="inline h-3 w-3" /> iCal
+                        </button>
+                        <button onClick={() => openGoogleCalendar(appt)} className="rounded bg-white/80 px-2 py-0.5 text-xs text-gray-700 border" title="הוסף ל-Google Calendar">
+                          <CalendarIcon className="inline h-3 w-3" /> Google
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             );
@@ -365,17 +553,24 @@ export default function AppointmentsPage() {
           )}
         </div>
       ) : viewMode === 'week' ? (
-        /* Week View */
+        /* Week View with drag & drop on day columns */
         <div className="overflow-x-auto">
           <div className="grid min-w-[800px] grid-cols-7 gap-2">
             {weekDays.map((day, i) => {
               const dateStr = formatDate(day);
               const isToday = dateStr === formatDate(new Date());
+              const isDropTarget = dragOverDay === dateStr;
               const dayAppts = appointments.filter(
                 (a) => formatDate(new Date(a.startTime)) === dateStr,
               );
               return (
-                <div key={i} className={`rounded-lg border p-2 ${isToday ? 'border-blue-400 bg-blue-50/50' : ''}`}>
+                <div
+                  key={i}
+                  className={`rounded-lg border p-2 min-h-[120px] transition-colors ${isToday ? 'border-blue-400 bg-blue-50/50' : ''} ${isDropTarget ? 'bg-blue-100 border-blue-400 ring-2 ring-blue-300' : ''}`}
+                  onDragOver={(e) => handleDragOverDay(e, dateStr)}
+                  onDragLeave={handleDragLeaveDay}
+                  onDrop={(e) => handleDropOnDay(e, dateStr)}
+                >
                   <div className="mb-2 text-center">
                     <div className="text-xs text-muted-foreground">{dayNames[day.getDay()]}</div>
                     <div className={`text-lg font-medium ${isToday ? 'text-blue-600' : ''}`}>{day.getDate()}</div>
@@ -384,7 +579,9 @@ export default function AppointmentsPage() {
                     {dayAppts.map((appt) => (
                       <div
                         key={appt.id}
-                        className={`rounded border px-2 py-1 text-xs ${statusColors[appt.status] || 'bg-gray-50'}`}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, appt)}
+                        className={`cursor-grab active:cursor-grabbing rounded border px-2 py-1 text-xs ${statusColors[appt.status] || 'bg-gray-50'}`}
                       >
                         <div dir="ltr" className="font-medium">{formatTime(appt.startTime)}</div>
                         <div className="truncate">{appt.animal?.name}</div>
