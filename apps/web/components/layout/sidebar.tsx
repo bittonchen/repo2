@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { hasAccess } from '@/lib/roles';
 import {
   LayoutDashboard,
   Users,
@@ -37,6 +38,7 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const visibleItems = navItems.filter((item) => hasAccess(item.href));
 
   return (
     <aside className="fixed right-0 top-0 z-30 flex h-screen w-64 flex-col border-l bg-white">
@@ -47,7 +49,7 @@ export function Sidebar() {
       </div>
       <nav className="flex-1 overflow-y-auto p-4">
         <ul className="space-y-1">
-          {navItems.map((item) => {
+          {visibleItems.map((item) => {
             const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
             return (
               <li key={item.href}>

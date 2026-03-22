@@ -1,6 +1,7 @@
 import {
-  Controller, Get, Post, Patch, Body, Param, Query, UseGuards,
+  Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Res, Header,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AppointmentsService } from './appointments.service';
@@ -26,9 +27,30 @@ export class AppointmentsController {
     return this.appointmentsService.findAll(tenantId, { veterinarianId, date, status });
   }
 
+  @Get('week')
+  findByWeek(
+    @CurrentTenant() tenantId: string,
+    @Query('startDate') startDate: string,
+    @Query('veterinarianId') veterinarianId?: string,
+  ) {
+    return this.appointmentsService.findByWeek(tenantId, startDate, veterinarianId);
+  }
+
   @Get(':id')
   findById(@CurrentTenant() tenantId: string, @Param('id') id: string) {
     return this.appointmentsService.findById(tenantId, id);
+  }
+
+  @Get(':id/ical')
+  async getICalEvent(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    const ical = await this.appointmentsService.generateICalEvent(tenantId, id);
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="appointment-${id}.ics"`);
+    res.send(ical);
   }
 
   @Post()

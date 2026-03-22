@@ -40,4 +40,31 @@ export class FinanceController {
   ) {
     return this.financeService.getRevenueByService(tenantId, dateFrom, dateTo);
   }
+
+  @Get('expenses')
+  getExpenses(
+    @CurrentTenant() tenantId: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+  ) {
+    return this.financeService.getExpensesSummary(tenantId, dateFrom, dateTo);
+  }
+
+  @Get('profit-and-loss')
+  getProfitAndLoss(
+    @CurrentTenant() tenantId: string,
+    @Query('year') year?: string,
+  ) {
+    const y = year ? parseInt(year, 10) : new Date().getFullYear();
+    return this.financeService.getProfitAndLoss(tenantId, y);
+  }
+
+  @Get('export')
+  getExportData(
+    @CurrentTenant() tenantId: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+  ) {
+    return this.financeService.getExportData(tenantId, dateFrom, dateTo);
+  }
 }

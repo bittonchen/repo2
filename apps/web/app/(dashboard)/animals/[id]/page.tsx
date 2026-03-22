@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   ArrowRight, PawPrint, Calendar, User, FileText, Download,
-  Stethoscope, Pill, Clock, Bell, Syringe, Weight, Thermometer,
+  Stethoscope, Pill, Clock, Bell, Syringe, Weight, Thermometer, Camera,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { getToken } from '@/lib/auth';
@@ -168,6 +168,37 @@ export default function AnimalDetailPage() {
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !animal) return;
+    const token = getToken();
+    if (!token) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      const res = await fetch(`${API_URL}/upload?folder=animals`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const { url } = await res.json();
+
+      await apiFetch(`/animals/${animal.id}`, {
+        method: 'PATCH',
+        token,
+        body: JSON.stringify({ imageUrl: url }),
+      });
+
+      setAnimal({ ...animal, imageUrl: url });
+    } catch (err) {
+      console.error('Image upload error:', err);
+    }
+  };
+
   if (loading) return <div className="py-8 text-center text-muted-foreground">טוען...</div>;
   if (!animal) return null;
 
@@ -185,9 +216,23 @@ export default function AnimalDetailPage() {
             <ArrowRight className="h-5 w-5" />
           </Button>
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
-              <PawPrint className="h-6 w-6 text-purple-600" />
-            </div>
+            <label className="relative cursor-pointer group">
+              {animal.imageUrl ? (
+                <img
+                  src={animal.imageUrl}
+                  alt={animal.name}
+                  className="h-12 w-12 rounded-full object-cover"
+                />
+              ) : (
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
+                  <PawPrint className="h-6 w-6 text-purple-600" />
+                </div>
+              )}
+              <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                <Camera className="h-5 w-5 text-white" />
+              </div>
+              <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+            </label>
             <div>
               <h1 className="text-2xl font-bold">{animal.name}</h1>
               <p className="text-sm text-muted-foreground">

@@ -17,44 +17,69 @@ export class SmsService {
   async send(to: string, body: string): Promise<boolean> {
     this.logger.log(`Sending SMS via ${this.provider} to ${to}`);
 
-    // TODO: Replace with actual SMS provider integration
-    // -------------------------------------------------
-    //
-    // === InforUMobile ===
-    // if (this.provider === 'inforumobile') {
-    //   const response = await fetch('https://api.inforumobile.com/v2/sms/send', {
-    //     method: 'POST',
-    //     headers: {
-    //       'Authorization': `Bearer ${this.apiKey}`,
-    //       'Content-Type': 'application/json',
-    //     },
-    //     body: JSON.stringify({
-    //       message: body,
-    //       recipients: [{ phone: to }],
-    //       sender: this.senderName,
-    //     }),
-    //   });
-    //   return response.ok;
-    // }
-    //
-    // === 019 SMS ===
-    // if (this.provider === '019') {
-    //   const response = await fetch('https://api.019sms.co.il/api/v2/sms', {
-    //     method: 'POST',
-    //     headers: {
-    //       'Authorization': `Bearer ${this.apiKey}`,
-    //       'Content-Type': 'application/json',
-    //     },
-    //     body: JSON.stringify({
-    //       text: body,
-    //       to,
-    //       from: this.senderName,
-    //     }),
-    //   });
-    //   return response.ok;
-    // }
+    if (!this.apiKey) {
+      this.logger.warn('SMS_API_KEY not configured, skipping send');
+      return false;
+    }
 
-    this.logger.log(`[STUB] SMS sent successfully to ${to} via ${this.provider}`);
-    return true;
+    try {
+      if (this.provider === 'inforumobile') {
+        return await this.sendViaInforUMobile(to, body);
+      }
+
+      if (this.provider === '019') {
+        return await this.sendVia019(to, body);
+      }
+
+      this.logger.error(`Unknown SMS provider: ${this.provider}`);
+      return false;
+    } catch (error) {
+      this.logger.error(`SMS to ${to} failed: ${error.message}`);
+      return false;
+    }
+  }
+
+  private async sendViaInforUMobile(to: string, body: string): Promise<boolean> {
+    const response = await fetch('https://api.inforumobile.com/v2/sms/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: body,
+        recipients: [{ phone: to }],
+        sender: this.senderName,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error');
+      this.logger.error(`InforUMobile error: ${response.status} - ${errorText}`);
+    }
+
+    return response.ok;
+  }
+
+  private async sendVia019(to: string, body: string): Promise<boolean> {
+    const response = await fetch('https://api.019sms.co.il/api/v2/sms', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text: body,
+        to,
+        from: this.senderName,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error');
+      this.logger.error(`019 SMS error: ${response.status} - ${errorText}`);
+    }
+
+    return response.ok;
   }
 }

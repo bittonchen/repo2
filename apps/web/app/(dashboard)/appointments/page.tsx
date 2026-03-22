@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, ChevronRight, ChevronLeft, Clock } from 'lucide-react';
+import { Plus, ChevronRight, ChevronLeft, Clock, CalendarDays, Calendar as CalendarIcon, Download } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 
@@ -43,6 +43,8 @@ const emptyForm = {
   clientId: '', animalId: '', veterinarianId: '', startTime: '', endTime: '', type: '', notes: '',
 };
 
+const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+
 function formatDate(d: Date) {
   return d.toISOString().split('T')[0];
 }
@@ -51,9 +53,20 @@ function formatTime(dateStr: string) {
   return new Date(dateStr).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 }
 
+function getWeekStart(date: Date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  d.setDate(d.getDate() - day);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+type ViewMode = 'day' | 'week';
+
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
+  const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [loading, setLoading] = useState(true);
   const [vets, setVets] = useState<Vet[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
@@ -68,10 +81,16 @@ export default function AppointmentsPage() {
     setLoading(true);
     try {
       const token = getToken();
-      const res = await apiFetch<Appointment[]>(`/appointments?date=${selectedDate}`, { token: token || undefined });
+      let res: Appointment[];
+      if (viewMode === 'week') {
+        const weekStart = getWeekStart(new Date(selectedDate));
+        res = await apiFetch<Appointment[]>(`/appointments/week?startDate=${formatDate(weekStart)}`, { token: token || undefined });
+      } else {
+        res = await apiFetch<Appointment[]>(`/appointments?date=${selectedDate}`, { token: token || undefined });
+      }
       setAppointments(res);
     } catch { /* */ } finally { setLoading(false); }
-  }, [selectedDate]);
+  }, [selectedDate, viewMode]);
 
   const fetchOptions = useCallback(async () => {
     try {
@@ -100,10 +119,6 @@ export default function AppointmentsPage() {
   const clientAnimals = animals.filter((a) => a.clientId === form.clientId);
 
   const openCreate = () => {
-    const start = new Date(selectedDate);
-    start.setHours(9, 0, 0, 0);
-    const end = new Date(start);
-    end.setMinutes(30);
     setForm({
       ...emptyForm,
       startTime: `${selectedDate}T09:00`,
@@ -148,18 +163,81 @@ export default function AppointmentsPage() {
     } catch { /* */ }
   };
 
+  const downloadIcal = (id: string) => {
+    const token = getToken();
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+    window.open(`${API_URL}/appointments/${id}/ical?token=${token}`, '_blank');
+  };
+
   const dateDisplay = new Date(selectedDate).toLocaleDateString('he-IL', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   });
 
-  // Group by hour
-  const hours = Array.from({ length: 12 }, (_, i) => i + 7); // 7:00 - 18:00
+  const hours = Array.from({ length: 12 }, (_, i) => i + 7);
+
+  const renderAppointmentCard = (appt: Appointment) => (
+    <div
+      key={appt.id}
+      className={`rounded-lg border px-3 py-2 text-sm ${statusColors[appt.status] || 'bg-gray-50'}`}
+    >
+      <div className="flex items-center gap-2">
+        <Clock className="h-3.5 w-3.5" />
+        <span dir="ltr">{formatTime(appt.startTime)} - {formatTime(appt.endTime)}</span>
+      </div>
+      <div className="mt-1 font-medium">
+        {appt.animal?.name} — {appt.client?.firstName} {appt.client?.lastName}
+      </div>
+      <div className="text-xs">{appt.type}</div>
+      {appt.veterinarian && <div className="text-xs text-muted-foreground">{appt.veterinarian.name}</div>}
+      <div className="mt-2 flex flex-wrap gap-1">
+        {appt.status === 'pending' && (
+          <button onClick={() => updateStatus(appt.id, 'confirmed')} className="rounded bg-blue-500 px-2 py-0.5 text-xs text-white">אשר</button>
+        )}
+        {(appt.status === 'confirmed' || appt.status === 'pending') && (
+          <button onClick={() => updateStatus(appt.id, 'in_progress')} className="rounded bg-purple-500 px-2 py-0.5 text-xs text-white">התחל טיפול</button>
+        )}
+        {appt.status === 'in_progress' && (
+          <button onClick={() => updateStatus(appt.id, 'completed')} className="rounded bg-green-500 px-2 py-0.5 text-xs text-white">סיים</button>
+        )}
+        {appt.status !== 'completed' && appt.status !== 'cancelled' && (
+          <button onClick={() => updateStatus(appt.id, 'cancelled')} className="rounded bg-gray-400 px-2 py-0.5 text-xs text-white">בטל</button>
+        )}
+        <button onClick={() => downloadIcal(appt.id)} className="rounded bg-white/80 px-2 py-0.5 text-xs text-gray-700 border" title="הוסף ליומן">
+          <Download className="inline h-3 w-3" />
+        </button>
+      </div>
+    </div>
+  );
+
+  // Week view data
+  const weekStart = getWeekStart(new Date(selectedDate));
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
 
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">תורים</h1>
-        <Button onClick={openCreate}><Plus className="ml-2 h-4 w-4" />תור חדש</Button>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border">
+            <button
+              onClick={() => setViewMode('day')}
+              className={`px-3 py-1.5 text-sm ${viewMode === 'day' ? 'bg-blue-50 text-blue-600' : 'text-gray-600'}`}
+            >
+              <CalendarIcon className="inline h-4 w-4 ml-1" />יום
+            </button>
+            <button
+              onClick={() => setViewMode('week')}
+              className={`px-3 py-1.5 text-sm ${viewMode === 'week' ? 'bg-blue-50 text-blue-600' : 'text-gray-600'}`}
+            >
+              <CalendarDays className="inline h-4 w-4 ml-1" />שבוע
+            </button>
+          </div>
+          <Button onClick={openCreate}><Plus className="ml-2 h-4 w-4" />תור חדש</Button>
+        </div>
       </div>
 
       {/* Create Form Modal */}
@@ -206,7 +284,7 @@ export default function AppointmentsPage() {
       {/* Date Navigation */}
       <Card className="mb-6">
         <CardHeader className="flex flex-row items-center justify-between py-3">
-          <Button variant="ghost" size="icon" onClick={() => changeDate(-1)}>
+          <Button variant="ghost" size="icon" onClick={() => changeDate(viewMode === 'week' ? -7 : -1)}>
             <ChevronRight className="h-5 w-5" />
           </Button>
           <div className="text-center">
@@ -215,58 +293,26 @@ export default function AppointmentsPage() {
               היום
             </button>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => changeDate(1)}>
+          <Button variant="ghost" size="icon" onClick={() => changeDate(viewMode === 'week' ? 7 : 1)}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
         </CardHeader>
       </Card>
 
-      {/* Day View */}
       {loading ? (
         <div className="py-8 text-center text-muted-foreground">טוען...</div>
-      ) : (
+      ) : viewMode === 'day' ? (
+        /* Day View */
         <div className="space-y-1">
           {hours.map((hour) => {
-            const hourAppts = appointments.filter((a) => {
-              const h = new Date(a.startTime).getHours();
-              return h === hour;
-            });
+            const hourAppts = appointments.filter((a) => new Date(a.startTime).getHours() === hour);
             return (
               <div key={hour} className="flex min-h-[60px] gap-4 border-b py-2">
                 <div className="w-16 pt-1 text-sm text-muted-foreground" dir="ltr">
                   {String(hour).padStart(2, '0')}:00
                 </div>
                 <div className="flex flex-1 flex-wrap gap-2">
-                  {hourAppts.map((appt) => (
-                    <div
-                      key={appt.id}
-                      className={`rounded-lg border px-3 py-2 text-sm ${statusColors[appt.status] || 'bg-gray-50'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span dir="ltr">{formatTime(appt.startTime)} - {formatTime(appt.endTime)}</span>
-                      </div>
-                      <div className="mt-1 font-medium">
-                        {appt.animal?.name} — {appt.client?.firstName} {appt.client?.lastName}
-                      </div>
-                      <div className="text-xs">{appt.type}</div>
-                      {appt.veterinarian && <div className="text-xs text-muted-foreground">{appt.veterinarian.name}</div>}
-                      <div className="mt-2 flex gap-1">
-                        {appt.status === 'pending' && (
-                          <button onClick={() => updateStatus(appt.id, 'confirmed')} className="rounded bg-blue-500 px-2 py-0.5 text-xs text-white">אשר</button>
-                        )}
-                        {(appt.status === 'confirmed' || appt.status === 'pending') && (
-                          <button onClick={() => updateStatus(appt.id, 'in_progress')} className="rounded bg-purple-500 px-2 py-0.5 text-xs text-white">התחל טיפול</button>
-                        )}
-                        {appt.status === 'in_progress' && (
-                          <button onClick={() => updateStatus(appt.id, 'completed')} className="rounded bg-green-500 px-2 py-0.5 text-xs text-white">סיים</button>
-                        )}
-                        {appt.status !== 'completed' && appt.status !== 'cancelled' && (
-                          <button onClick={() => updateStatus(appt.id, 'cancelled')} className="rounded bg-gray-400 px-2 py-0.5 text-xs text-white">בטל</button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                  {hourAppts.map(renderAppointmentCard)}
                 </div>
               </div>
             );
@@ -274,6 +320,42 @@ export default function AppointmentsPage() {
           {appointments.length === 0 && (
             <div className="py-8 text-center text-muted-foreground">אין תורים ביום זה</div>
           )}
+        </div>
+      ) : (
+        /* Week View */
+        <div className="overflow-x-auto">
+          <div className="grid min-w-[800px] grid-cols-7 gap-2">
+            {weekDays.map((day, i) => {
+              const dateStr = formatDate(day);
+              const isToday = dateStr === formatDate(new Date());
+              const dayAppts = appointments.filter(
+                (a) => formatDate(new Date(a.startTime)) === dateStr,
+              );
+              return (
+                <div key={i} className={`rounded-lg border p-2 ${isToday ? 'border-blue-400 bg-blue-50/50' : ''}`}>
+                  <div className="mb-2 text-center">
+                    <div className="text-xs text-muted-foreground">{dayNames[day.getDay()]}</div>
+                    <div className={`text-lg font-medium ${isToday ? 'text-blue-600' : ''}`}>{day.getDate()}</div>
+                  </div>
+                  <div className="space-y-1">
+                    {dayAppts.map((appt) => (
+                      <div
+                        key={appt.id}
+                        className={`rounded border px-2 py-1 text-xs ${statusColors[appt.status] || 'bg-gray-50'}`}
+                      >
+                        <div dir="ltr" className="font-medium">{formatTime(appt.startTime)}</div>
+                        <div className="truncate">{appt.animal?.name}</div>
+                        <div className="truncate text-muted-foreground">{appt.type}</div>
+                      </div>
+                    ))}
+                    {dayAppts.length === 0 && (
+                      <div className="py-2 text-center text-xs text-muted-foreground">-</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

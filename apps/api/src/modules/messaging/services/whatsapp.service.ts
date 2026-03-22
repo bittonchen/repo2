@@ -15,26 +15,38 @@ export class WhatsAppService {
   async send(to: string, body: string): Promise<boolean> {
     this.logger.log(`Sending WhatsApp message to ${to}`);
 
-    // TODO: Replace with actual Meta Cloud API integration
-    // ----------------------------------------------------
-    // const url = `https://graph.facebook.com/v18.0/${this.phoneNumberId}/messages`;
-    // const response = await fetch(url, {
-    //   method: 'POST',
-    //   headers: {
-    //     'Authorization': `Bearer ${this.accessToken}`,
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({
-    //     messaging_product: 'whatsapp',
-    //     to,
-    //     type: 'text',
-    //     text: { body },
-    //   }),
-    // });
-    // const data = await response.json();
-    // return !!data.messages?.[0]?.id;
+    if (!this.phoneNumberId || !this.accessToken) {
+      this.logger.warn('WhatsApp credentials not configured, skipping send');
+      return false;
+    }
 
-    this.logger.log(`[STUB] WhatsApp message sent successfully to ${to}`);
-    return true;
+    try {
+      const url = `https://graph.facebook.com/v18.0/${this.phoneNumberId}/messages`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to,
+          type: 'text',
+          text: { body },
+        }),
+      });
+
+      const data = await response.json();
+      const success = !!data.messages?.[0]?.id;
+
+      if (!success) {
+        this.logger.error(`WhatsApp send failed: ${JSON.stringify(data.error || data)}`);
+      }
+
+      return success;
+    } catch (error) {
+      this.logger.error(`WhatsApp to ${to} failed: ${error.message}`);
+      return false;
+    }
   }
 }
