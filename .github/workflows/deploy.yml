@@ -1,0 +1,201 @@
+# =============================================================================
+# VetFlow — CI/CD Pipeline (GitHub Actions)
+# =============================================================================
+# Triggers on push to main. Runs tests, builds Docker images, pushes to ECR,
+# and deploys infrastructure + services via Terraform.
+#
+# Required GitHub Secrets:
+#   AWS_ACCESS_KEY_ID       — IAM access key with ECR/ECS/Terraform permissions
+#   AWS_SECRET_ACCESS_KEY   — Corresponding secret key
+#   AWS_REGION              — e.g. eu-west-1
+#   DB_PASSWORD             — RDS database password
+#   JWT_SECRET              — JWT signing secret
+# =============================================================================
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION || 'eu-west-1' }}
+  ENVIRONMENT: production
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9"
+
+# ---------------------------------------------------------------------------
+# Jobs
+# ---------------------------------------------------------------------------
+
+jobs:
+  # -------------------------------------------------------------------------
+  # 1. Test — lint + type-check + unit tests
+  # -------------------------------------------------------------------------
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Build
+        run: pnpm run build
+
+  # -------------------------------------------------------------------------
+  # 2. Build & Push — Docker images to ECR
+  # -------------------------------------------------------------------------
+  build-push:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: test
+
+    permissions:
+      id-token: write
+      contents: read
+
+    outputs:
+      api_image: ${{ steps.build-api.outputs.image }}
+      web_image: ${{ steps.build-web.outputs.image }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: tag
+        run: echo "tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push API image
+        id: build-api
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          REPOSITORY: vetflow-${{ env.ENVIRONMENT }}-api
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          IMAGE="$REGISTRY/$REPOSITORY:$IMAGE_TAG"
+          docker build -t "$IMAGE" -t "$REGISTRY/$REPOSITORY:latest" \
+            -f apps/api/Dockerfile .
+          docker push "$IMAGE"
+          docker push "$REGISTRY/$REPOSITORY:latest"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push Web image
+        id: build-web
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          REPOSITORY: vetflow-${{ env.ENVIRONMENT }}-web
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          IMAGE="$REGISTRY/$REPOSITORY:$IMAGE_TAG"
+          docker build -t "$IMAGE" -t "$REGISTRY/$REPOSITORY:latest" \
+            -f apps/web/Dockerfile .
+          docker push "$IMAGE"
+          docker push "$REGISTRY/$REPOSITORY:latest"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+  # -------------------------------------------------------------------------
+  # 3. Deploy — Terraform apply + ECS service update
+  # -------------------------------------------------------------------------
+  deploy:
+    name: Deploy Infrastructure & Services
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build-push
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7"
+
+      - name: Terraform Init
+        working-directory: infra/terraform
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: infra/terraform
+        run: |
+          terraform plan \
+            -var="region=${{ env.AWS_REGION }}" \
+            -var="environment=${{ env.ENVIRONMENT }}" \
+            -var="db_password=${{ secrets.DB_PASSWORD }}" \
+            -var="jwt_secret=${{ secrets.JWT_SECRET }}" \
+            -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: infra/terraform
+        run: terraform apply -auto-approve tfplan
+
+      - name: Force new ECS deployment
+        run: |
+          CLUSTER="vetflow-${{ env.ENVIRONMENT }}-cluster"
+          aws ecs update-service \
+            --cluster "$CLUSTER" \
+            --service "vetflow-${{ env.ENVIRONMENT }}-api" \
+            --force-new-deployment \
+            --region "${{ env.AWS_REGION }}"
+          aws ecs update-service \
+            --cluster "$CLUSTER" \
+            --service "vetflow-${{ env.ENVIRONMENT }}-web" \
+            --force-new-deployment \
+            --region "${{ env.AWS_REGION }}"
+
+      - name: Wait for services to stabilize
+        run: |
+          CLUSTER="vetflow-${{ env.ENVIRONMENT }}-cluster"
+          aws ecs wait services-stable \
+            --cluster "$CLUSTER" \
+            --services \
+              "vetflow-${{ env.ENVIRONMENT }}-api" \
+              "vetflow-${{ env.ENVIRONMENT }}-web" \
+            --region "${{ env.AWS_REGION }}"
