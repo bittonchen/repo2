@@ -61,10 +61,14 @@ model User {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  appointments   Appointment[] @relation("VeterinarianAppointments")
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments   Appointment[]   @relation("VeterinarianAppointments")
   medicalRecords MedicalRecord[]
-  labTests       LabTest[]     @relation("VeterinarianLabTests")
+  labTests       LabTest[]       @relation("VeterinarianLabTests")
+  refreshTokens  RefreshToken[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -489,6 +493,44 @@ model LabTestResult {
 
   @@index([labTestId])
   @@map("lab_test_results")
+}
+
+// ===== Audit Log =====
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  userId    String?
+  action    String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, LOGIN_FAILED, EXPORT, ERASE
+  entity    String?  // Client, Animal, MedicalRecord, etc.
+  entityId  String?
+  details   Json?    // Additional context
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ===== Refresh Tokens =====
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
 }
 
 // ===== DICOM / Medical Imaging =====

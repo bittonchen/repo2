@@ -8,6 +8,7 @@ export async function apiFetch<T>(endpoint: string, options: FetchOptions = {}):
   const { token, headers, ...rest } = options;
 
   const res = await fetch(`${API_URL}${endpoint}`, {
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

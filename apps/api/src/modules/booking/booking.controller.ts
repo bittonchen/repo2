@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Param, Query, Body } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { BookingService } from './booking.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 
@@ -28,6 +29,7 @@ export class BookingController {
   }
 
   @Post(':slug/book')
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   createBooking(
     @Param('slug') slug: string,
     @Body() dto: CreateBookingDto,

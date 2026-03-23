@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
-import { isAuthenticated } from '@/lib/auth';
+import { isAuthenticated, setupActivityTracking } from '@/lib/auth';
 import { hasAccess } from '@/lib/roles';
 import { I18nProvider, useTranslation } from '@/lib/i18n';
 
@@ -24,6 +24,12 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       router.replace('/dashboard');
     }
   }, [pathname, router]);
+
+  // Setup idle/absolute timeout tracking
+  useEffect(() => {
+    const cleanup = setupActivityTracking();
+    return cleanup;
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50" dir={dir}>

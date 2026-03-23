@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
@@ -24,11 +26,21 @@ import { MedicalRecordsModule } from './modules/medical-records/medical-records.
 import { BookingModule } from './modules/booking/booking.module';
 import { LabModule } from './modules/lab/lab.module';
 import { ImagingModule } from './modules/imaging/imaging.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { PrivacyModule } from './modules/privacy/privacy.module';
+import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000,
+        limit: 60,
+      },
+    ]),
     PrismaModule,
     AuthModule,
     TenantsModule,
@@ -52,6 +64,18 @@ import { ImagingModule } from './modules/imaging/imaging.module';
     BookingModule,
     LabModule,
     ImagingModule,
+    AuditModule,
+    PrivacyModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditInterceptor,
+    },
   ],
 })
 export class AppModule {}
