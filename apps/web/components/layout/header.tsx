@@ -38,10 +38,15 @@ interface Notification {
 /* ---------- Component ---------- */
 
 export function Header() {
-  const user = getUser();
-  const token = getToken();
+  const [user, setUser] = useState<ReturnType<typeof getUser>>(null);
+  const [token, setTokenState] = useState<string | null>(null);
   const router = useRouter();
   const { t, locale, setLocale } = useTranslation();
+
+  useEffect(() => {
+    setUser(getUser());
+    setTokenState(getToken());
+  }, []);
 
   /* --- Search state --- */
   const [searchQuery, setSearchQuery] = useState('');

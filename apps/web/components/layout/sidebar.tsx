@@ -53,9 +53,15 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { t, dir } = useTranslation();
-  const visibleItems = navItems.filter((item) => hasAccess(item.href));
   const isRtl = dir === 'rtl';
+
+  useEffect(() => { setMounted(true); }, []);
+
+  const visibleItems = mounted
+    ? navItems.filter((item) => hasAccess(item.href))
+    : navItems;
 
   // Close mobile sidebar on navigation
   useEffect(() => {
