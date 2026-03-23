@@ -21,6 +21,9 @@ import { PaymentModule } from './modules/payment/payment.module';
 import { SearchModule } from './modules/search/search.module';
 import { TreatmentTemplatesModule } from './modules/treatment-templates/treatment-templates.module';
 import { MedicalRecordsModule } from './modules/medical-records/medical-records.module';
+import { BookingModule } from './modules/booking/booking.module';
+import { LabModule } from './modules/lab/lab.module';
+import { ImagingModule } from './modules/imaging/imaging.module';
 
 @Module({
   imports: [
@@ -46,6 +49,9 @@ import { MedicalRecordsModule } from './modules/medical-records/medical-records.
     SearchModule,
     TreatmentTemplatesModule,
     MedicalRecordsModule,
+    BookingModule,
+    LabModule,
+    ImagingModule,
   ],
 })
 export class AppModule {}

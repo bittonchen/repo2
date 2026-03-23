@@ -16,7 +16,9 @@
     "subscription": "Subscription",
     "admin": "Admin",
     "templates": "Treatment Templates",
-    "vaccinations": "Vaccinations"
+    "vaccinations": "Vaccinations",
+    "lab": "Laboratory",
+    "imaging": "Imaging"
   },
   "header": {
     "search_placeholder": "Search clients, animals, inventory...",

@@ -15,9 +15,14 @@ import {
   Save,
   CheckCircle2,
   AlertCircle,
+  Globe,
+  Copy,
+  MonitorDot,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 
-type Tab = 'clinic' | 'hours' | 'notifications' | 'profile';
+type Tab = 'clinic' | 'hours' | 'notifications' | 'profile' | 'booking' | 'pacs';
 
 interface Tenant {
   id: string;
@@ -28,6 +33,7 @@ interface Tenant {
   email?: string;
   workingHours?: WorkingHours;
   notificationSettings?: NotificationSettings;
+  settings?: { bookingEnabled?: boolean; [key: string]: any };
 }
 
 interface WorkingHoursEntry {
@@ -76,6 +82,8 @@ const TABS: { key: Tab; label: string; icon: typeof Building2 }[] = [
   { key: 'clinic', label: 'פרטי קליניקה', icon: Building2 },
   { key: 'hours', label: 'שעות פעילות', icon: Clock },
   { key: 'notifications', label: 'התראות', icon: Bell },
+  { key: 'booking', label: 'הזמנת תורים אונליין', icon: Globe },
+  { key: 'pacs', label: 'PACS / DICOM', icon: MonitorDot },
   { key: 'profile', label: 'פרופיל', icon: User },
 ];
 
@@ -123,6 +131,19 @@ export default function SettingsPage() {
   const [notifSaving, setNotifSaving] = useState(false);
   const [notifMsg, setNotifMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // PACS
+  const [pacsForm, setPacsForm] = useState({ orthancUrl: '', username: '', password: '' });
+  const [pacsSaving, setPacsSaving] = useState(false);
+  const [pacsMsg, setPacsMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [pacsTesting, setPacsTesting] = useState(false);
+  const [pacsConnected, setPacsConnected] = useState<boolean | null>(null);
+
+  // Booking
+  const [bookingEnabled, setBookingEnabled] = useState(false);
+  const [bookingSaving, setBookingSaving] = useState(false);
+  const [bookingMsg, setBookingMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
   // Profile
   const [profileUser, setProfileUser] = useState<{ name: string; email: string }>({ name: '', email: '' });
   const [passwordForm, setPasswordForm] = useState({
@@ -151,6 +172,16 @@ export default function SettingsPage() {
         }
         if (tenant.notificationSettings) {
           setNotifications({ ...DEFAULT_NOTIFICATIONS, ...tenant.notificationSettings });
+        }
+        if (tenant.settings?.bookingEnabled) {
+          setBookingEnabled(true);
+        }
+        if (tenant.settings?.pacs) {
+          setPacsForm({
+            orthancUrl: tenant.settings.pacs.orthancUrl || '',
+            username: tenant.settings.pacs.username || '',
+            password: tenant.settings.pacs.password || '',
+          });
         }
       } catch {
         // If tenant fetch fails, keep defaults
@@ -266,6 +297,74 @@ export default function SettingsPage() {
     } finally {
       setProfileSaving(false);
     }
+  };
+
+  // Save PACS settings
+  const savePacsSettings = async () => {
+    setPacsSaving(true);
+    setPacsMsg(null);
+    try {
+      const token = getToken();
+      await apiFetch('/tenants/current', {
+        method: 'PATCH',
+        token: token || undefined,
+        body: JSON.stringify({ settings: { pacs: pacsForm } }),
+      });
+      setPacsMsg({ type: 'success', text: 'הגדרות PACS עודכנו בהצלחה' });
+    } catch (err: any) {
+      setPacsMsg({ type: 'error', text: err.message || 'שגיאה בשמירת ההגדרות' });
+    } finally {
+      setPacsSaving(false);
+    }
+  };
+
+  const testPacsConnection = async () => {
+    setPacsTesting(true);
+    setPacsConnected(null);
+    try {
+      const token = getToken();
+      const res = await apiFetch<{ connected: boolean; version?: string }>('/imaging/pacs/test', { token: token || undefined });
+      setPacsConnected(res.connected);
+      if (res.connected) {
+        setPacsMsg({ type: 'success', text: `חיבור הצליח! Orthanc v${res.version || 'unknown'}` });
+      } else {
+        setPacsMsg({ type: 'error', text: 'החיבור נכשל — בדוק כתובת והרשאות' });
+      }
+    } catch {
+      setPacsConnected(false);
+      setPacsMsg({ type: 'error', text: 'החיבור נכשל' });
+    } finally {
+      setPacsTesting(false);
+    }
+  };
+
+  // Save booking settings
+  const saveBookingSettings = async () => {
+    setBookingSaving(true);
+    setBookingMsg(null);
+    try {
+      const token = getToken();
+      await apiFetch('/tenants/current', {
+        method: 'PATCH',
+        token: token || undefined,
+        body: JSON.stringify({ settings: { bookingEnabled } }),
+      });
+      setBookingMsg({ type: 'success', text: 'הגדרות ההזמנה עודכנו בהצלחה' });
+    } catch (err: any) {
+      setBookingMsg({ type: 'error', text: err.message || 'שגיאה בשמירת ההגדרות' });
+    } finally {
+      setBookingSaving(false);
+    }
+  };
+
+  const bookingUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/book/${clinicForm.slug}`
+    : `/book/${clinicForm.slug}`;
+
+  const copyBookingUrl = () => {
+    navigator.clipboard.writeText(bookingUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const updateWorkingDay = (dayKey: string, field: keyof WorkingHoursEntry, value: string | boolean) => {
@@ -548,6 +647,168 @@ export default function SettingsPage() {
               <Button onClick={saveNotifications} disabled={notifSaving}>
                 <Save className="ml-2 h-4 w-4" />
                 {notifSaving ? 'שומר...' : 'שמירת שינויים'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Booking Tab */}
+      {activeTab === 'booking' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              הזמנת תורים אונליין
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {bookingMsg && <StatusMessage type={bookingMsg.type} message={bookingMsg.text} />}
+            <div className="space-y-6">
+              {/* Enable/Disable Toggle */}
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div>
+                  <p className="font-medium">אפשר הזמנת תורים אונליין</p>
+                  <p className="text-sm text-muted-foreground">
+                    לקוחות יוכלו לקבוע תורים דרך קישור ציבורי
+                  </p>
+                </div>
+                <label className="relative inline-flex cursor-pointer items-center">
+                  <input
+                    type="checkbox"
+                    checked={bookingEnabled}
+                    onChange={(e) => setBookingEnabled(e.target.checked)}
+                    className="peer sr-only"
+                  />
+                  <div className="peer h-6 w-11 rounded-full bg-gray-300 after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:rtl:-translate-x-full" />
+                </label>
+              </div>
+
+              {/* Booking URL */}
+              {clinicForm.slug && (
+                <div className="rounded-lg border p-4">
+                  <p className="mb-2 font-medium">קישור ההזמנה הציבורי</p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={bookingUrl}
+                      readOnly
+                      className="bg-gray-50 text-muted-foreground flex-1"
+                      dir="ltr"
+                    />
+                    <Button variant="outline" onClick={copyBookingUrl} className="shrink-0">
+                      <Copy className="ml-2 h-4 w-4" />
+                      {copied ? 'הועתק!' : 'העתק'}
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    שתף קישור זה עם הלקוחות שלך כדי שיוכלו לקבוע תורים בעצמם
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="mt-6 flex justify-start">
+              <Button onClick={saveBookingSettings} disabled={bookingSaving}>
+                <Save className="ml-2 h-4 w-4" />
+                {bookingSaving ? 'שומר...' : 'שמירת שינויים'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* PACS Tab */}
+      {activeTab === 'pacs' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MonitorDot className="h-5 w-5" />
+              הגדרות PACS / DICOM
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {pacsMsg && <StatusMessage type={pacsMsg.type} message={pacsMsg.text} />}
+            <p className="mb-4 text-sm text-muted-foreground">
+              חבר שרת Orthanc לקבלת תמונות DICOM ממכשירי הדמיה (רנטגן, אולטראסאונד, CT).
+              יש להתקין Orthanc בקליניקה ולהזין את פרטי החיבור כאן.
+            </p>
+            <div className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2 space-y-2">
+                  <Label>כתובת שרת Orthanc</Label>
+                  <Input
+                    value={pacsForm.orthancUrl}
+                    onChange={(e) => setPacsForm({ ...pacsForm, orthancUrl: e.target.value })}
+                    placeholder="http://localhost:8042"
+                    dir="ltr"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>שם משתמש</Label>
+                  <Input
+                    value={pacsForm.username}
+                    onChange={(e) => setPacsForm({ ...pacsForm, username: e.target.value })}
+                    placeholder="orthanc"
+                    dir="ltr"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>סיסמה</Label>
+                  <Input
+                    type="password"
+                    value={pacsForm.password}
+                    onChange={(e) => setPacsForm({ ...pacsForm, password: e.target.value })}
+                    placeholder="orthanc"
+                    dir="ltr"
+                  />
+                </div>
+              </div>
+
+              {/* Connection status */}
+              <div className="flex items-center gap-3 rounded-lg border p-4">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                  pacsConnected === true ? 'bg-green-100' : pacsConnected === false ? 'bg-red-100' : 'bg-gray-100'
+                }`}>
+                  {pacsConnected === true ? (
+                    <Wifi className="h-5 w-5 text-green-600" />
+                  ) : pacsConnected === false ? (
+                    <WifiOff className="h-5 w-5 text-red-500" />
+                  ) : (
+                    <MonitorDot className="h-5 w-5 text-gray-400" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium">
+                    {pacsConnected === true ? 'מחובר' : pacsConnected === false ? 'לא מחובר' : 'לא נבדק'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    בדוק את החיבור לשרת Orthanc
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={testPacsConnection}
+                  disabled={pacsTesting || !pacsForm.orthancUrl}
+                >
+                  {pacsTesting ? 'בודק...' : 'בדוק חיבור'}
+                </Button>
+              </div>
+
+              {/* Info box */}
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+                <p className="font-medium mb-1">תקנים נתמכים:</p>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li>DICOM 3.0 — קבלה ושמירה של תמונות רפואיות</li>
+                  <li>DICOMweb (WADO-RS) — צפייה בתמונות דרך הדפדפן</li>
+                  <li>C-STORE — קבלת תמונות ממכשירי הדמיה</li>
+                  <li>C-FIND / C-MOVE — חיפוש וחילוץ חקירות</li>
+                  <li>Stone Web Viewer — צופה DICOM מובנה</li>
+                </ul>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-start">
+              <Button onClick={savePacsSettings} disabled={pacsSaving}>
+                <Save className="ml-2 h-4 w-4" />
+                {pacsSaving ? 'שומר...' : 'שמירת שינויים'}
               </Button>
             </div>
           </CardContent>

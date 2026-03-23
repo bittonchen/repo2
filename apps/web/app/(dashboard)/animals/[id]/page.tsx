@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import {
   ArrowRight, PawPrint, Calendar, User, FileText, Download, Pencil,
   Stethoscope, Pill, Clock, Bell, Syringe, Weight, Thermometer, Camera,
+  FlaskConical, MonitorDot, AlertTriangle, TrendingUp, Eye,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { getToken } from '@/lib/auth';
@@ -44,6 +45,37 @@ interface Reminder {
   sendAt: string;
   sentAt?: string;
   channel: string;
+}
+
+interface LabTestResult {
+  id: string;
+  paramName: string;
+  value: string;
+  unit: string;
+  refMin?: number;
+  refMax?: number;
+  flag?: string;
+}
+
+interface LabTest {
+  id: string;
+  testType: string;
+  panelName?: string;
+  status: string;
+  orderedAt: string;
+  completedAt?: string;
+  veterinarian?: { id: string; name: string };
+  results: LabTestResult[];
+}
+
+interface DicomStudy {
+  id: string;
+  studyDescription?: string;
+  modality?: string;
+  studyDate?: string;
+  numberOfSeries: number;
+  numberOfInstances: number;
+  status: string;
 }
 
 interface AnimalDetail {
@@ -124,6 +156,10 @@ export default function AnimalDetailPage() {
   const [editError, setEditError] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
+  // Lab & Imaging
+  const [labTests, setLabTests] = useState<LabTest[]>([]);
+  const [dicomStudies, setDicomStudies] = useState<DicomStudy[]>([]);
+
   const fetchAnimal = async () => {
     const token = getToken();
     if (!token || !params.id) return;
@@ -137,8 +173,22 @@ export default function AnimalDetailPage() {
     }
   };
 
+  const fetchLabAndImaging = async () => {
+    const token = getToken();
+    if (!token || !params.id) return;
+    try {
+      const [labData, imagingData] = await Promise.all([
+        apiFetch<LabTest[]>(`/lab?animalId=${params.id}`, { token }),
+        apiFetch<DicomStudy[]>(`/imaging/studies?animalId=${params.id}`, { token }),
+      ]);
+      setLabTests(labData);
+      setDicomStudies(imagingData);
+    } catch { /* ignore */ }
+  };
+
   useEffect(() => {
     fetchAnimal();
+    fetchLabAndImaging();
   }, [params.id]);
 
   const openEdit = () => {
@@ -417,7 +467,7 @@ export default function AnimalDetailPage() {
           </Card>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
             <Card>
               <CardContent className="flex flex-col items-center pt-6">
                 <Stethoscope className="mb-2 h-8 w-8 text-green-600" />
@@ -430,6 +480,20 @@ export default function AnimalDetailPage() {
                 <Calendar className="mb-2 h-8 w-8 text-blue-600" />
                 <div className="text-2xl font-bold">{animal.appointments.length}</div>
                 <div className="text-xs text-muted-foreground">ביקורים</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex flex-col items-center pt-6">
+                <FlaskConical className="mb-2 h-8 w-8 text-purple-600" />
+                <div className="text-2xl font-bold">{labTests.length}</div>
+                <div className="text-xs text-muted-foreground">בדיקות מעבדה</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex flex-col items-center pt-6">
+                <MonitorDot className="mb-2 h-8 w-8 text-cyan-600" />
+                <div className="text-2xl font-bold">{dicomStudies.length}</div>
+                <div className="text-xs text-muted-foreground">חקירות הדמיה</div>
               </CardContent>
             </Card>
             <Card>
@@ -589,6 +653,123 @@ export default function AnimalDetailPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Lab Results & Imaging */}
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Lab Tests */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FlaskConical className="h-5 w-5 text-purple-600" />
+                  בדיקות מעבדה ({labTests.length})
+                </div>
+                <Link href="/lab">
+                  <Button variant="outline" size="sm">
+                    <Eye className="ml-1 h-3 w-3" />
+                    כל הבדיקות
+                  </Button>
+                </Link>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {labTests.length === 0 ? (
+                <p className="text-sm text-muted-foreground">אין בדיקות מעבדה</p>
+              ) : (
+                <div className="space-y-3">
+                  {labTests.slice(0, 5).map((test) => {
+                    const abnormals = test.results.filter(r => r.flag && r.flag !== 'N').length;
+                    const typeLabels: Record<string, string> = {
+                      hematology: 'המטולוגיה', biochemistry: 'ביוכימיה', urinalysis: 'שתן',
+                      cytology: 'ציטולוגיה', parasitology: 'פרזיטולוגיה', serology: 'סרולוגיה', other: 'אחר',
+                    };
+                    const statusLabelsLab: Record<string, { label: string; color: string }> = {
+                      pending: { label: 'ממתין', color: 'bg-yellow-100 text-yellow-800' },
+                      in_progress: { label: 'בביצוע', color: 'bg-blue-100 text-blue-800' },
+                      completed: { label: 'הושלם', color: 'bg-green-100 text-green-800' },
+                      cancelled: { label: 'בוטל', color: 'bg-gray-100 text-gray-800' },
+                    };
+                    const st = statusLabelsLab[test.status] || statusLabelsLab.pending;
+                    return (
+                      <div key={test.id} className="flex items-center justify-between border-b py-3 last:border-0">
+                        <div>
+                          <div className="text-sm font-medium">
+                            {typeLabels[test.testType] || test.testType}
+                            {test.panelName && <span className="text-muted-foreground"> — {test.panelName}</span>}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {test.veterinarian?.name} • {new Date(test.orderedAt).toLocaleDateString('he-IL')}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {abnormals > 0 && (
+                            <span className="flex items-center gap-1 rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+                              <AlertTriangle className="h-3 w-3" />
+                              {abnormals}
+                            </span>
+                          )}
+                          <span className={`rounded px-2 py-0.5 text-xs ${st.color}`}>{st.label}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Imaging Studies */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MonitorDot className="h-5 w-5 text-cyan-600" />
+                  הדמיה — DICOM ({dicomStudies.length})
+                </div>
+                <Link href="/imaging">
+                  <Button variant="outline" size="sm">
+                    <Eye className="ml-1 h-3 w-3" />
+                    כל החקירות
+                  </Button>
+                </Link>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {dicomStudies.length === 0 ? (
+                <p className="text-sm text-muted-foreground">אין חקירות הדמיה</p>
+              ) : (
+                <div className="space-y-3">
+                  {dicomStudies.slice(0, 5).map((study) => {
+                    const imgStatus: Record<string, { label: string; color: string }> = {
+                      received: { label: 'התקבל', color: 'bg-yellow-100 text-yellow-800' },
+                      reviewed: { label: 'נצפה', color: 'bg-blue-100 text-blue-800' },
+                      reported: { label: 'דווח', color: 'bg-green-100 text-green-800' },
+                    };
+                    const st = imgStatus[study.status] || imgStatus.received;
+                    return (
+                      <Link
+                        key={study.id}
+                        href={`/imaging/viewer/${study.id}`}
+                        className="flex items-center justify-between border-b py-3 last:border-0 hover:bg-gray-50 rounded px-1 -mx-1"
+                      >
+                        <div>
+                          <div className="text-sm font-medium">
+                            {study.studyDescription || study.modality || 'חקירה'}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {study.modality} • {study.numberOfInstances} תמונות
+                            {study.studyDate && ` • ${new Date(study.studyDate).toLocaleDateString('he-IL')}`}
+                          </div>
+                        </div>
+                        <span className={`rounded px-2 py-0.5 text-xs ${st.color}`}>{st.label}</span>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

@@ -16,7 +16,9 @@
     "subscription": "מנויים",
     "admin": "ניהול",
     "templates": "תבניות טיפול",
-    "vaccinations": "חיסונים"
+    "vaccinations": "חיסונים",
+    "lab": "מעבדה",
+    "imaging": "הדמיה"
   },
   "header": {
     "search_placeholder": "חיפוש לקוחות, חיות, מלאי...",

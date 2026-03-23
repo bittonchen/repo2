@@ -32,6 +32,8 @@ model Tenant {
   quotes       Quote[]
   reminders    Reminder[]
   messageLogs  MessageLog[]
+  labTests     LabTest[]
+  dicomStudies DicomStudy[]
 
   @@map("tenants")
 }
@@ -62,6 +64,7 @@ model User {
   tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   appointments   Appointment[] @relation("VeterinarianAppointments")
   medicalRecords MedicalRecord[]
+  labTests       LabTest[]     @relation("VeterinarianLabTests")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -138,6 +141,8 @@ model Animal {
   appointments   Appointment[]
   medicalRecords MedicalRecord[]
   reminders      Reminder[]
+  labTests       LabTest[]
+  dicomStudies   DicomStudy[]
 
   @@index([tenantId])
   @@index([tenantId, clientId])
@@ -429,4 +434,125 @@ model MessageLog {
   @@index([tenantId])
   @@index([tenantId, clientId])
   @@map("message_logs")
+}
+
+// ===== Lab Tests =====
+
+enum LabTestStatus {
+  pending
+  in_progress
+  completed
+  cancelled
+}
+
+model LabTest {
+  id              String        @id @default(cuid())
+  tenantId        String
+  animalId        String
+  veterinarianId  String
+  medicalRecordId String?
+  testType        String        // hematology, biochemistry, urinalysis, cytology, parasitology, serology, other
+  panelName       String?       // e.g. "CBC", "Chem 10", "UA"
+  status          LabTestStatus @default(pending)
+  orderedAt       DateTime      @default(now())
+  completedAt     DateTime?
+  deviceId        String?       // ID of the lab device (for bridge integration)
+  deviceName      String?       // Human-readable device name
+  rawData         Json?         // Raw device output (ASTM/HL7 payload)
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  animal       Animal          @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  veterinarian User            @relation("VeterinarianLabTests", fields: [veterinarianId], references: [id])
+  results      LabTestResult[]
+
+  @@index([tenantId])
+  @@index([tenantId, animalId])
+  @@index([tenantId, status])
+  @@map("lab_tests")
+}
+
+model LabTestResult {
+  id        String  @id @default(cuid())
+  labTestId String
+  paramName String  // e.g., WBC, RBC, Glucose, BUN, ALT
+  value     String  // actual measured value
+  unit      String  // e.g., g/dL, 10^3/uL, mmol/L, mg/dL
+  refMin    Float?  // species-specific reference range min
+  refMax    Float?  // species-specific reference range max
+  flag      String? // H (high), L (low), N (normal), C (critical)
+  sortOrder Int     @default(0)
+
+  labTest LabTest @relation(fields: [labTestId], references: [id], onDelete: Cascade)
+
+  @@index([labTestId])
+  @@map("lab_test_results")
+}
+
+// ===== DICOM / Medical Imaging =====
+
+model DicomStudy {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  animalId           String
+  studyInstanceUid   String   @unique
+  studyDate          DateTime?
+  studyDescription   String?
+  modality           String?  // CR, DX, US, CT, MR, OT
+  accessionNumber    String?
+  referringVet       String?
+  orthancStudyId     String?  // Orthanc internal ID for PACS integration
+  numberOfSeries     Int      @default(0)
+  numberOfInstances  Int      @default(0)
+  status             String   @default("received") // received, reviewed, reported
+  reportText         String?
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  tenant  Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  animal  Animal       @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  series  DicomSeries[]
+
+  @@index([tenantId])
+  @@index([tenantId, animalId])
+  @@index([orthancStudyId])
+  @@map("dicom_studies")
+}
+
+model DicomSeries {
+  id                String  @id @default(cuid())
+  studyId           String
+  seriesInstanceUid String  @unique
+  seriesNumber      Int?
+  seriesDescription String?
+  modality          String?
+  bodyPart          String?
+  orthancSeriesId   String? // Orthanc internal ID
+  numberOfInstances Int     @default(0)
+  createdAt         DateTime @default(now())
+
+  study     DicomStudy      @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  instances DicomInstance[]
+
+  @@index([studyId])
+  @@map("dicom_series")
+}
+
+model DicomInstance {
+  id                String  @id @default(cuid())
+  seriesId          String
+  sopInstanceUid    String  @unique
+  instanceNumber    Int?
+  orthancInstanceId String? // Orthanc internal ID
+  fileUrl           String? // S3 or local storage path for the DICOM file
+  thumbnailUrl      String? // Pre-rendered thumbnail
+  createdAt         DateTime @default(now())
+
+  series DicomSeries @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@index([seriesId])
+  @@map("dicom_instances")
 }

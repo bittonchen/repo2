@@ -21,6 +21,8 @@ const rolePermissions: Record<string, UserRole[]> = {
   '/subscription': ['owner', 'admin'],
   '/templates': ['owner', 'admin', 'veterinarian', 'technician', 'receptionist'],
   '/vaccinations': ['owner', 'admin', 'veterinarian', 'technician', 'receptionist'],
+  '/lab': ['owner', 'admin', 'veterinarian', 'technician'],
+  '/imaging': ['owner', 'admin', 'veterinarian', 'technician'],
   '/search': ['owner', 'admin', 'veterinarian', 'technician', 'receptionist'],
 };
 

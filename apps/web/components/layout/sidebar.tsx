@@ -25,6 +25,8 @@ import {
   Syringe,
   Menu,
   X,
+  FlaskConical,
+  MonitorDot,
 } from 'lucide-react';
 
 const navItems = [
@@ -39,6 +41,8 @@ const navItems = [
   { href: '/pos', labelKey: 'nav.pos', icon: Receipt },
   { href: '/quotes', labelKey: 'nav.quotes', icon: FileText },
   { href: '/finance', labelKey: 'nav.finance', icon: TrendingUp },
+  { href: '/lab', labelKey: 'nav.lab', icon: FlaskConical },
+  { href: '/imaging', labelKey: 'nav.imaging', icon: MonitorDot },
   { href: '/vaccinations', labelKey: 'nav.vaccinations', icon: Syringe },
   { href: '/templates', labelKey: 'nav.templates', icon: ClipboardList },
   { href: '/settings', labelKey: 'nav.settings', icon: Settings },
