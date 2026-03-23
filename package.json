@@ -22,10 +22,12 @@
       "@prisma/client",
       "@prisma/engines",
       "prisma",
-      "bcrypt",
       "@nestjs/core",
       "msgpackr-extract"
-    ]
+    ],
+    "overrides": {
+      "ajv": ">=8.18.0"
+    }
   },
   "devDependencies": {
     "turbo": "^2.8.17"
