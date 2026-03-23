@@ -21,6 +21,7 @@ interface DicomInstance {
 
 interface DicomSeries {
   id: string;
+  seriesNumber?: number;
   seriesDescription?: string;
   modality?: string;
   bodyPart?: string;
