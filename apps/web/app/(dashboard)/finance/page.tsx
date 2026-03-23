@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { DollarSign, TrendingUp, TrendingDown, FileText, Download } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { getToken } from '@/lib/auth';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import html2canvas from 'html2canvas-pro';
 import { jsPDF } from 'jspdf';
 
