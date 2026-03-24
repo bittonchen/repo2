@@ -23,11 +23,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await apiFetch<{ accessToken: string; user: any }>('/auth/login', {
+      const res = await apiFetch<{ accessToken?: string; token?: string; user: any }>('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      setToken(res.accessToken);
+      setToken(res.accessToken || res.token || '');
       setUser(res.user);
       router.push('/dashboard');
     } catch (err: any) {
