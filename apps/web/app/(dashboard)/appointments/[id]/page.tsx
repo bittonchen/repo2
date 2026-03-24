@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   ArrowRight, Clock, User, PawPrint, Stethoscope, Calendar,
-  Download, Thermometer, Weight, Pill, FileText, Edit, Plus,
+  Download, Thermometer, Weight, Pill, FileText, Edit, Plus, Printer,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { getToken } from '@/lib/auth';
@@ -264,6 +264,10 @@ export default function AppointmentDetailPage() {
               בטל
             </Button>
           )}
+          <Button size="sm" variant="outline" onClick={() => router.push(`/appointments/${appointment.id}/summary`)}>
+            <Printer className="ml-1 h-4 w-4" />
+            סיכום ביקור
+          </Button>
           <Button size="sm" variant="outline" onClick={downloadIcal}>
             <Download className="ml-1 h-4 w-4" />
             iCal

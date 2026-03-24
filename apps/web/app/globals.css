@@ -58,3 +58,20 @@
 [dir="rtl"] {
   text-align: right;
 }
+
+/* Print styles */
+@media print {
+  nav, aside, header, .sidebar {
+    display: none !important;
+  }
+  .md\:mr-64, .md\:ml-64 {
+    margin-right: 0 !important;
+    margin-left: 0 !important;
+  }
+  body, .min-h-screen, .bg-gray-50 {
+    background: white !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+}
