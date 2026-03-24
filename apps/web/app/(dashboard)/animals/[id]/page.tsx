@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import {
   ArrowRight, PawPrint, Calendar, User, FileText, Download, Pencil,
   Stethoscope, Pill, Clock, Bell, Syringe, Weight, Thermometer, Camera,
-  FlaskConical, MonitorDot, AlertTriangle, TrendingUp, Eye,
+  FlaskConical, MonitorDot, AlertTriangle, TrendingUp, Eye, Upload, Trash2, Paperclip,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { getToken } from '@/lib/auth';
@@ -76,6 +76,17 @@ interface DicomStudy {
   numberOfSeries: number;
   numberOfInstances: number;
   status: string;
+}
+
+interface AnimalDocument {
+  id: string;
+  name: string;
+  url: string;
+  fileType: string;
+  fileSize: number;
+  notes?: string;
+  createdAt: string;
+  uploader?: { id: string; name: string };
 }
 
 interface AnimalDetail {
@@ -160,6 +171,10 @@ export default function AnimalDetailPage() {
   const [labTests, setLabTests] = useState<LabTest[]>([]);
   const [dicomStudies, setDicomStudies] = useState<DicomStudy[]>([]);
 
+  // Documents
+  const [documents, setDocuments] = useState<AnimalDocument[]>([]);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+
   const fetchAnimal = async () => {
     const token = getToken();
     if (!token || !params.id) return;
@@ -186,9 +201,54 @@ export default function AnimalDetailPage() {
     } catch { /* ignore */ }
   };
 
+  const fetchDocuments = async () => {
+    const token = getToken();
+    if (!token || !params.id) return;
+    try {
+      const docs = await apiFetch<AnimalDocument[]>(`/documents?animalId=${params.id}`, { token });
+      setDocuments(docs);
+    } catch { /* ignore */ }
+  };
+
+  const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !params.id) return;
+    const token = getToken();
+    if (!token) return;
+
+    setUploadingDoc(true);
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`${API_URL}/documents?animalId=${params.id}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      fetchDocuments();
+    } catch (err) {
+      console.error('Document upload error:', err);
+    } finally {
+      setUploadingDoc(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteDoc = async (docId: string) => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      await apiFetch(`/documents/${docId}`, { method: 'DELETE', token });
+      setDocuments((prev) => prev.filter((d) => d.id !== docId));
+    } catch { /* ignore */ }
+  };
+
   useEffect(() => {
     fetchAnimal();
     fetchLabAndImaging();
+    fetchDocuments();
   }, [params.id]);
 
   const openEdit = () => {
@@ -811,6 +871,71 @@ export default function AnimalDetailPage() {
             </CardContent>
           </Card>
         )}
+        {/* Documents */}
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Paperclip className="h-5 w-5 text-indigo-600" />
+                מסמכים ({documents.length})
+              </div>
+              <label>
+                <Button variant="outline" size="sm" asChild disabled={uploadingDoc}>
+                  <span className="cursor-pointer">
+                    <Upload className="ml-1 h-4 w-4" />
+                    {uploadingDoc ? 'מעלה...' : 'העלאת מסמך'}
+                  </span>
+                </Button>
+                <input
+                  type="file"
+                  accept="image/*,.pdf,.doc,.docx"
+                  onChange={handleDocUpload}
+                  className="hidden"
+                />
+              </label>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {documents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">אין מסמכים. ניתן להעלות תמונות, PDF או מסמכי Word.</p>
+            ) : (
+              <div className="space-y-3">
+                {documents.map((doc) => (
+                  <div key={doc.id} className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-indigo-50">
+                        {doc.fileType.startsWith('image/') ? (
+                          <Camera className="h-5 w-5 text-indigo-600" />
+                        ) : (
+                          <FileText className="h-5 w-5 text-indigo-600" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">{doc.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {(doc.fileSize / 1024).toFixed(0)} KB
+                          {doc.uploader && ` • ${doc.uploader.name}`}
+                          {' • '}
+                          {new Date(doc.createdAt).toLocaleDateString('he-IL')}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <a href={doc.url} target="_blank" rel="noopener noreferrer">
+                        <Button variant="ghost" size="icon" title="הורדה">
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </a>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteDoc(doc.id)} title="מחיקה">
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>{/* end PDF Content */}
     </div>
   );

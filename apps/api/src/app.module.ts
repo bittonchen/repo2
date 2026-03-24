@@ -28,6 +28,7 @@ import { LabModule } from './modules/lab/lab.module';
 import { ImagingModule } from './modules/imaging/imaging.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { PrivacyModule } from './modules/privacy/privacy.module';
+import { DocumentsModule } from './modules/documents/documents.module';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 
 @Module({
@@ -66,6 +67,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     ImagingModule,
     AuditModule,
     PrivacyModule,
+    DocumentsModule,
   ],
   providers: [
     {

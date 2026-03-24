@@ -69,6 +69,7 @@ model User {
   medicalRecords MedicalRecord[]
   labTests       LabTest[]       @relation("VeterinarianLabTests")
   refreshTokens  RefreshToken[]
+  documents      Document[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -147,6 +148,7 @@ model Animal {
   reminders      Reminder[]
   labTests       LabTest[]
   dicomStudies   DicomStudy[]
+  documents      Document[]
 
   @@index([tenantId])
   @@index([tenantId, clientId])
@@ -597,4 +599,27 @@ model DicomInstance {
 
   @@index([seriesId])
   @@map("dicom_instances")
+}
+
+// ===== Animal Documents =====
+
+model Document {
+  id         String   @id @default(cuid())
+  tenantId   String
+  animalId   String
+  uploadedBy String
+  name       String
+  url        String
+  key        String
+  fileType   String
+  fileSize   Int
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  animal   Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  uploader User   @relation(fields: [uploadedBy], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, animalId])
+  @@map("documents")
 }
