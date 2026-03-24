@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Calendar,
   Users,
@@ -13,7 +16,7 @@ import {
   Clock,
   UserPlus,
   Receipt,
-  ClipboardList,
+  Stethoscope,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { getToken } from '@/lib/auth';
@@ -36,6 +39,10 @@ interface LowStockItem {
   min_quantity: number;
 }
 
+interface ClientOption { id: string; firstName: string; lastName: string; }
+interface AnimalOption { id: string; name: string; clientId: string; }
+interface Vet { id: string; name: string; }
+
 const statusLabels: Record<string, string> = {
   scheduled: 'מתוכנן',
   confirmed: 'מאושר',
@@ -54,19 +61,22 @@ const statusColors: Record<string, string> = {
   'no-show': 'bg-orange-100 text-orange-700',
 };
 
-const quickActions = [
-  { label: 'תור חדש', href: '/appointments?new=1', icon: Calendar, color: 'text-blue-600' },
-  { label: 'לקוח חדש', href: '/clients?new=1', icon: UserPlus, color: 'text-green-600' },
-  { label: 'חשבונית חדשה', href: '/pos?new=1', icon: Receipt, color: 'text-purple-600' },
-  { label: 'תבנית טיפול', href: '/templates', icon: ClipboardList, color: 'text-orange-600' },
-];
-
 export default function DashboardPage() {
+  const router = useRouter();
   const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
   const [clientCount, setClientCount] = useState(0);
   const [animalCount, setAnimalCount] = useState(0);
   const [lowStock, setLowStock] = useState<LowStockItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Visit modal state
+  const [showVisitModal, setShowVisitModal] = useState(false);
+  const [visitForm, setVisitForm] = useState({ clientId: '', animalId: '', veterinarianId: '', type: '', notes: '' });
+  const [visitClients, setVisitClients] = useState<ClientOption[]>([]);
+  const [visitAnimals, setVisitAnimals] = useState<AnimalOption[]>([]);
+  const [visitVets, setVisitVets] = useState<Vet[]>([]);
+  const [visitSaving, setVisitSaving] = useState(false);
+  const [visitError, setVisitError] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -89,6 +99,74 @@ export default function DashboardPage() {
     };
     fetchData();
   }, []);
+
+  // Fetch options for visit modal
+  useEffect(() => {
+    if (!showVisitModal) return;
+    const fetchOptions = async () => {
+      const token = getToken();
+      if (!token) return;
+      try {
+        const [clientsRes, animalsRes, vetsRes] = await Promise.all([
+          apiFetch<{ data: ClientOption[] }>('/clients?pageSize=100', { token }).catch(() => ({ data: [] })),
+          apiFetch<AnimalOption[]>('/animals', { token }).catch(() => []),
+          apiFetch<any>('/employees?role=veterinarian', { token }).catch(() => ({ data: [] })),
+        ]);
+        setVisitClients(clientsRes.data);
+        setVisitAnimals(animalsRes);
+        const vetData = Array.isArray(vetsRes) ? vetsRes : vetsRes.data || [];
+        setVisitVets(vetData);
+      } catch { /* */ }
+    };
+    fetchOptions();
+  }, [showVisitModal]);
+
+  const visitClientAnimals = visitAnimals.filter((a) => a.clientId === visitForm.clientId);
+
+  const handleVisitSave = async () => {
+    if (!visitForm.clientId || !visitForm.animalId || !visitForm.veterinarianId || !visitForm.type) {
+      setVisitError('כל השדות המסומנים הם חובה');
+      return;
+    }
+    setVisitSaving(true);
+    setVisitError('');
+    try {
+      const token = getToken();
+      const now = new Date();
+      const endTime = new Date(now.getTime() + 30 * 60 * 1000);
+      const created = await apiFetch<{ id: string }>('/appointments', {
+        method: 'POST',
+        token: token || undefined,
+        body: JSON.stringify({
+          clientId: visitForm.clientId,
+          animalId: visitForm.animalId,
+          veterinarianId: visitForm.veterinarianId,
+          type: visitForm.type,
+          notes: visitForm.notes,
+          startTime: now.toISOString(),
+          endTime: endTime.toISOString(),
+        }),
+      });
+      await apiFetch(`/appointments/${created.id}/status`, {
+        method: 'PATCH',
+        token: token || undefined,
+        body: JSON.stringify({ status: 'in_progress' }),
+      });
+      setShowVisitModal(false);
+      router.push(`/appointments/${created.id}`);
+    } catch (err: any) {
+      setVisitError(err.message || 'שגיאה ביצירת ביקור');
+    } finally {
+      setVisitSaving(false);
+    }
+  };
+
+  const quickActions = [
+    { label: 'ביקור חדש', onClick: () => { setVisitForm({ clientId: '', animalId: '', veterinarianId: '', type: '', notes: '' }); setVisitError(''); setShowVisitModal(true); }, icon: Stethoscope, color: 'text-emerald-600' },
+    { label: 'תור חדש', href: '/appointments?new=1', icon: Calendar, color: 'text-blue-600' },
+    { label: 'לקוח חדש', href: '/clients?new=1', icon: UserPlus, color: 'text-green-600' },
+    { label: 'חשבונית חדשה', href: '/pos?new=1', icon: Receipt, color: 'text-purple-600' },
+  ] as const;
 
   const upcomingAppts = todayAppointments
     .filter((a) => a.status !== 'cancelled' && a.status !== 'completed')
@@ -127,17 +205,66 @@ export default function DashboardPage() {
 
       {/* Quick Actions */}
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {quickActions.map((action) => (
-          <Link key={action.label} href={action.href}>
+        {quickActions.map((action) => {
+          const cardContent = (
             <Card className="cursor-pointer transition hover:shadow-md hover:border-primary/30">
               <CardContent className="flex flex-col items-center justify-center gap-2 py-6">
                 <action.icon className={`h-8 w-8 ${action.color}`} />
                 <span className="text-sm font-medium">{action.label}</span>
               </CardContent>
             </Card>
-          </Link>
-        ))}
+          );
+          if ('onClick' in action) {
+            return <div key={action.label} onClick={action.onClick}>{cardContent}</div>;
+          }
+          return <Link key={action.label} href={action.href}>{cardContent}</Link>;
+        })}
       </div>
+
+      {/* Visit Modal */}
+      {showVisitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-xl font-bold">ביקור חדש</h2>
+            {visitError && <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-600">{visitError}</div>}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>לקוח *</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={visitForm.clientId} onChange={(e) => setVisitForm({ ...visitForm, clientId: e.target.value, animalId: '' })}>
+                  <option value="">בחרו לקוח</option>
+                  {visitClients.map((c) => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>חיה *</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={visitForm.animalId} onChange={(e) => setVisitForm({ ...visitForm, animalId: e.target.value })} disabled={!visitForm.clientId}>
+                  <option value="">בחרו חיה</option>
+                  {visitClientAnimals.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>וטרינר *</Label>
+                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={visitForm.veterinarianId} onChange={(e) => setVisitForm({ ...visitForm, veterinarianId: e.target.value })}>
+                  <option value="">בחרו וטרינר</option>
+                  {visitVets.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>סוג ביקור *</Label>
+                <Input value={visitForm.type} onChange={(e) => setVisitForm({ ...visitForm, type: e.target.value })} placeholder="ביקורת שגרתית, חיסון, ניתוח..." />
+              </div>
+              <div className="space-y-2">
+                <Label>הערות</Label>
+                <textarea className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={visitForm.notes} onChange={(e) => setVisitForm({ ...visitForm, notes: e.target.value })} />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowVisitModal(false)}>ביטול</Button>
+              <Button onClick={handleVisitSave} disabled={visitSaving}>{visitSaving ? 'שומר...' : 'התחל ביקור'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Appointments & Alerts */}
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">

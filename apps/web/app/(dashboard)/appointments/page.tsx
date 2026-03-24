@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, DragEvent } from 'react';
+import { useState, useEffect, useCallback, DragEvent, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -82,6 +83,15 @@ function getMonthDays(date: Date) {
 }
 
 export default function AppointmentsPage() {
+  return (
+    <Suspense>
+      <AppointmentsContent />
+    </Suspense>
+  );
+}
+
+function AppointmentsContent() {
+  const searchParams = useSearchParams();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
   const [viewMode, setViewMode] = useState<ViewMode>('day');
@@ -147,6 +157,14 @@ export default function AppointmentsPage() {
 
   useEffect(() => { fetchAppointments(); }, [fetchAppointments]);
   useEffect(() => { fetchOptions(); }, [fetchOptions]);
+
+  // Auto-open create form when navigated with ?new=1
+  useEffect(() => {
+    if (searchParams.get('new') === '1') {
+      openCreate();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const changeDate = (days: number) => {
     const d = new Date(selectedDate);
