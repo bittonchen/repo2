@@ -20,6 +20,7 @@ export class SearchService {
             { lastName: { contains: q, mode: 'insensitive' } },
             { phone: { contains: q, mode: 'insensitive' } },
             { email: { contains: q, mode: 'insensitive' } },
+            { idNumber: { contains: q, mode: 'insensitive' } },
           ],
         },
         select: {
